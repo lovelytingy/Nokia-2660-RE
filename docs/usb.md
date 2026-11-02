@@ -11,10 +11,13 @@ Status: **partially documented — verified via community findings**
 * **Behavior:** Enumerates as a vendor-specific serial/bulk interface. If no handshake is initiated by host software within ~2-5 seconds, the BootROM times out.
 
 ### 2. Normal Mode (Powered On)
-* When plugged in while powered on, MOCOR prompts on the screen:
-  * **Mass Storage:** Exposes FAT-formatted MicroSD card as USB Mass Storage (MSC).
-  * **Charge Only:** Disables data endpoints or charges only.
-  * **Engineering/Diag Mode:** If enabled via hidden USSD code, exposes Spreadtrum Modem / Diag COM endpoints (`1782:4002` or similar).
+* **Charge Only:** Disables USB PHY data lines; device draws charging current only without enumerating on host.
+* **Mass Storage ("Phone memory" / U-Disk):**
+  * **VID:PID:** **`1782:4D01`**
+  * **Product String:** `Generic Disk1.0`
+  * **Manufacturer:** `Spreadtrum`
+  * **Behavior:** Exposes the internal 32.4 MB FAT12 volume (`/Volumes/Nokia 2660F`) corresponding to partition `0x80000008` (`PreloadUdisk`).
+* **Engineering/Diag Mode:** If enabled via hidden USSD code, exposes Spreadtrum Modem / Diag COM endpoints (`1782:4002` or similar).
 
 ## Host Connection on macOS
 
@@ -25,7 +28,7 @@ On macOS:
   ```
   or:
   ```bash
-  system_profiler SPUSBDataType
+  system_profiler SPUSBHostDataType
   ```
 * `libusb` (e.g. from Homebrew) can claim the interface directly for `spd_dump`.
 
