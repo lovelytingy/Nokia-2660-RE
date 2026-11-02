@@ -1,0 +1,62 @@
+# macOS / editors
+.DS_Store
+.AppleDouble
+.LSOverride
+Thumbs.db
+*.swp
+*.swo
+*~
+.idea/
+.vscode/
+*.code-workspace
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.Python
+.venv/
+venv/
+.env
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Firmware binaries (too large for git; see firmware/readme.md)
+*.pac
+*.img
+*.elf
+*.axf
+*.nb0
+*.bin
+
+# Keep small text/data artifacts under extracted/
+!firmware/extracted/**/
+!firmware/extracted/**/*.md
+!firmware/extracted/**/*.json
+!firmware/extracted/**/*.csv
+!firmware/extracted/**/*.xml
+!firmware/extracted/**/*.txt
+
+# Ghidra local databases / exports (regenerate from stripped payloads)
+ghidra/projects/
+ghidra/exports/
+*.rep/
+*.gpr
+*.lock
+*.gar
+
+# Captures may include huge traces; keep docs, ignore raw dumps by default
+captures/**/*.pcap
+captures/**/*.pcapng
+captures/**/*.zip
+captures/**/*.7z
+captures/**/*.rar
+captures/photos/
+captures/logs/
+
+# Tool caches
+*.log
+.cache/
+tmp/
+temp/

@@ -1,0 +1,2 @@
+# Optional helpers for local firmware triage
+capstone>=5.0.0

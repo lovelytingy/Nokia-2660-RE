@@ -1,0 +1,506 @@
+[
+  {
+    "index": 0,
+    "hdr_length": 2580,
+    "id": "FDL",
+    "file_name": "fdl1.bin",
+    "size": 32596,
+    "data_offset": 76944,
+    "file_flag": 257,
+    "check_flag": 1,
+    "can_omit": 0,
+    "addr_num": 1,
+    "addrs": [
+      "0x40000000"
+    ],
+    "extracted_as": "fdl1.bin",
+    "sha256": "2d1629db408dbfa08965eaa83cde41d963cf1d26a1aa09f6ab5b87e34b16c390"
+  },
+  {
+    "index": 1,
+    "hdr_length": 2580,
+    "id": "FDL2",
+    "file_name": "fdl2.bin",
+    "size": 63924,
+    "data_offset": 109540,
+    "file_flag": 257,
+    "check_flag": 1,
+    "can_omit": 0,
+    "addr_num": 1,
+    "addrs": [
+      "0x0"
+    ],
+    "extracted_as": "fdl2.bin",
+    "sha256": "a3a695c3a02cf206448d60c7e7a32df809b928a8c9a3bbd79f8de8aa462ec2b0"
+  },
+  {
+    "index": 2,
+    "hdr_length": 2580,
+    "id": "NV",
+    "file_name": "FF618V01_48X128_QVGA_CF8_HMD_SKU3_BASE_6325_nvitem_MH_13ARA80IN00.bin",
+    "size": 841860,
+    "data_offset": 173464,
+    "file_flag": 1,
+    "check_flag": 1,
+    "can_omit": 0,
+    "addr_num": 1,
+    "addrs": [
+      "0x90000001"
+    ],
+    "extracted_as": "FF618V01_48X128_QVGA_CF8_HMD_SKU3_BASE_6325_nvitem_MH_13ARA80IN00.bin",
+    "sha256": "a4a1d1f89d04fcbeee5c3056e357dfa8e7f314b2cdd2695949c674038242f442"
+  },
+  {
+    "index": 3,
+    "hdr_length": 2580,
+    "id": "BOOT0",
+    "file_name": "boot0.bin",
+    "size": 31620,
+    "data_offset": 1015324,
+    "file_flag": 1,
+    "check_flag": 1,
+    "can_omit": 0,
+    "addr_num": 1,
+    "addrs": [
+      "0x80000001"
+    ],
+    "extracted_as": "boot0.bin",
+    "sha256": "f9a446bb90d338a72275d338fcc6ddbcdf2b9cabf842babaa90814efde33b281"
+  },
+  {
+    "index": 4,
+    "hdr_length": 2580,
+    "id": "BOOT1",
+    "file_name": "boot1.bin",
+    "size": 161364,
+    "data_offset": 1046944,
+    "file_flag": 1,
+    "check_flag": 1,
+    "can_omit": 0,
+    "addr_num": 1,
+    "addrs": [
+      "0x80000002"
+    ],
+    "extracted_as": "boot1.bin",
+    "sha256": "84198efccac0a34a513c2997b25ae1ff3d4a21055f133604b35956fdfee38028"
+  },
+  {
+    "index": 5,
+    "hdr_length": 2580,
+    "id": "UserImg",
+    "file_name": "EXEC_USER_IMAGE.bin",
+    "size": 11834228,
+    "data_offset": 1208308,
+    "file_flag": 1,
+    "check_flag": 1,
+    "can_omit": 0,
+    "addr_num": 1,
+    "addrs": [
+      "0x80000004"
+    ],
+    "extracted_as": "EXEC_USER_IMAGE.bin",
+    "sha256": "00da688f51fc66d874f88e6ed5849dbd79cb51cdc6e04271bdf0f0724783c777"
+  },
+  {
+    "index": 6,
+    "hdr_length": 2580,
+    "id": "MMIRes",
+    "file_name": "mmi_res_240X320_MH.bin",
+    "size": 8489672,
+    "data_offset": 13042536,
+    "file_flag": 1,
+    "check_flag": 1,
+    "can_omit": 0,
+    "addr_num": 1,
+    "addrs": [
+      "0x90000004"
+    ],
+    "extracted_as": "mmi_res_240X320_MH.bin",
+    "sha256": "14f31f4f1f5fee88b67b8a966690d0d0f236790544dbeca62eb00a77cf0b6a2e"
+  },
+  {
+    "index": 7,
+    "hdr_length": 2580,
+    "id": "GSMDSPCODE",
+    "file_name": "NEMOL_CAT1_EVS_DM_DSP.bin",
+    "size": 2654208,
+    "data_offset": 21532208,
+    "file_flag": 1,
+    "check_flag": 1,
+    "can_omit": 0,
+    "addr_num": 1,
+    "addrs": [
+      "0x90000005"
+    ],
+    "extracted_as": "NEMOL_CAT1_EVS_DM_DSP.bin",
+    "sha256": "5515ec5b9f55742255efddfb8881399903f246594dc192b8b3e939a1daa7dd4e"
+  },
+  {
+    "index": 8,
+    "hdr_length": 2580,
+    "id": "LTEDSPCODE",
+    "file_name": "T117_CAT1_LTEA_DSP.bin",
+    "size": 3145728,
+    "data_offset": 24186416,
+    "file_flag": 1,
+    "check_flag": 1,
+    "can_omit": 0,
+    "addr_num": 1,
+    "addrs": [
+      "0x90000012"
+    ],
+    "extracted_as": "T117_CAT1_LTEA_DSP.bin",
+    "sha256": "ab1c100cae509d2e5af54791f5c5195fbf9398c36aa514cff1608a132dc03be5"
+  },
+  {
+    "index": 9,
+    "hdr_length": 2580,
+    "id": "OmadmFota",
+    "file_name": "OmadmFota.bin",
+    "size": 0,
+    "data_offset": 0,
+    "file_flag": 1,
+    "check_flag": 0,
+    "can_omit": 1,
+    "addr_num": 1,
+    "addrs": [
+      "0x90000008"
+    ],
+    "extracted_as": "OmadmFota.bin",
+    "sha256": null,
+    "note": "no payload (operation-only or empty)"
+  },
+  {
+    "index": 10,
+    "hdr_length": 2580,
+    "id": "Preload_Hidden",
+    "file_name": "Preload_Hidden.bin",
+    "size": 0,
+    "data_offset": 0,
+    "file_flag": 1,
+    "check_flag": 0,
+    "can_omit": 1,
+    "addr_num": 1,
+    "addrs": [
+      "0x90000007"
+    ],
+    "extracted_as": "Preload_Hidden.bin",
+    "sha256": null,
+    "note": "no payload (operation-only or empty)"
+  },
+  {
+    "index": 11,
+    "hdr_length": 2580,
+    "id": "PreloadUdisk",
+    "file_name": "PreloadUdisk.bin",
+    "size": 0,
+    "data_offset": 0,
+    "file_flag": 1,
+    "check_flag": 0,
+    "can_omit": 1,
+    "addr_num": 1,
+    "addrs": [
+      "0x80000008"
+    ],
+    "extracted_as": "PreloadUdisk.bin",
+    "sha256": null,
+    "note": "no payload (operation-only or empty)"
+  },
+  {
+    "index": 12,
+    "hdr_length": 2580,
+    "id": "RomDisk",
+    "file_name": "RomDisk.bin",
+    "size": 0,
+    "data_offset": 0,
+    "file_flag": 1,
+    "check_flag": 0,
+    "can_omit": 1,
+    "addr_num": 1,
+    "addrs": [
+      "0x9000000e"
+    ],
+    "extracted_as": "RomDisk.bin",
+    "sha256": null,
+    "note": "no payload (operation-only or empty)"
+  },
+  {
+    "index": 13,
+    "hdr_length": 2580,
+    "id": "ERASE HIDDEN_DISK_C",
+    "file_name": "ERASE HIDDEN_DISK_C.bin",
+    "size": 0,
+    "data_offset": 0,
+    "file_flag": 0,
+    "check_flag": 1,
+    "can_omit": 1,
+    "addr_num": 1,
+    "addrs": [
+      "0x90000007"
+    ],
+    "extracted_as": "ERASE HIDDEN_DISK_C.bin",
+    "sha256": null,
+    "note": "no payload (operation-only or empty)"
+  },
+  {
+    "index": 14,
+    "hdr_length": 2580,
+    "id": "EraseRunNV",
+    "file_name": "EraseRunNV.bin",
+    "size": 0,
+    "data_offset": 0,
+    "file_flag": 0,
+    "check_flag": 1,
+    "can_omit": 0,
+    "addr_num": 1,
+    "addrs": [
+      "0x90000003"
+    ],
+    "extracted_as": "EraseRunNV.bin",
+    "sha256": null,
+    "note": "no payload (operation-only or empty)"
+  },
+  {
+    "index": 15,
+    "hdr_length": 2580,
+    "id": "XFILE",
+    "file_name": "XFILE.bin",
+    "size": 0,
+    "data_offset": 0,
+    "file_flag": 0,
+    "check_flag": 0,
+    "can_omit": 1,
+    "addr_num": 1,
+    "addrs": [
+      "0x90000016"
+    ],
+    "extracted_as": "XFILE.bin",
+    "sha256": null,
+    "note": "no payload (operation-only or empty)"
+  },
+  {
+    "index": 16,
+    "hdr_length": 2580,
+    "id": "AUTOSMS",
+    "file_name": "AUTOSMS.bin",
+    "size": 0,
+    "data_offset": 0,
+    "file_flag": 0,
+    "check_flag": 0,
+    "can_omit": 1,
+    "addr_num": 1,
+    "addrs": [
+      "0x90000017"
+    ],
+    "extracted_as": "AUTOSMS.bin",
+    "sha256": null,
+    "note": "no payload (operation-only or empty)"
+  },
+  {
+    "index": 17,
+    "hdr_length": 2580,
+    "id": "EraseDU",
+    "file_name": "EraseDU.bin",
+    "size": 0,
+    "data_offset": 0,
+    "file_flag": 0,
+    "check_flag": 1,
+    "can_omit": 0,
+    "addr_num": 1,
+    "addrs": [
+      "0x9000000a"
+    ],
+    "extracted_as": "EraseDU.bin",
+    "sha256": null,
+    "note": "no payload (operation-only or empty)"
+  },
+  {
+    "index": 18,
+    "hdr_length": 2580,
+    "id": "PhaseCheck",
+    "file_name": "PhaseCheck.bin",
+    "size": 0,
+    "data_offset": 0,
+    "file_flag": 0,
+    "check_flag": 1,
+    "can_omit": 0,
+    "addr_num": 1,
+    "addrs": [
+      "0x90000002"
+    ],
+    "extracted_as": "PhaseCheck.bin",
+    "sha256": null,
+    "note": "no payload (operation-only or empty)"
+  },
+  {
+    "index": 19,
+    "hdr_length": 2580,
+    "id": "KernelImg",
+    "file_name": "EXEC_KERNEL_IMAGE.bin",
+    "size": 12976468,
+    "data_offset": 27332144,
+    "file_flag": 1,
+    "check_flag": 1,
+    "can_omit": 0,
+    "addr_num": 1,
+    "addrs": [
+      "0x80000003"
+    ],
+    "extracted_as": "EXEC_KERNEL_IMAGE.bin",
+    "sha256": "84fe0d7a5226d766d9f2d99c9a6e88426e9ad09d7b1290ad9ab9cb6eb085034b"
+  },
+  {
+    "index": 20,
+    "hdr_length": 2580,
+    "id": "CM4CODE",
+    "file_name": "PM_nemol_cm4.bin",
+    "size": 55500,
+    "data_offset": 40308612,
+    "file_flag": 1,
+    "check_flag": 1,
+    "can_omit": 0,
+    "addr_num": 1,
+    "addrs": [
+      "0x90000013"
+    ],
+    "extracted_as": "PM_nemol_cm4.bin",
+    "sha256": "e708f6f0e27b140d1c7c0f2422735f8b267f126f730a0742a78abd9d0eb88878"
+  },
+  {
+    "index": 21,
+    "hdr_length": 2580,
+    "id": "WIFICODE",
+    "file_name": "WIFICODE.bin",
+    "size": 0,
+    "data_offset": 0,
+    "file_flag": 1,
+    "check_flag": 0,
+    "can_omit": 1,
+    "addr_num": 1,
+    "addrs": [
+      "0x90000014"
+    ],
+    "extracted_as": "WIFICODE.bin",
+    "sha256": null,
+    "note": "no payload (operation-only or empty)"
+  },
+  {
+    "index": 22,
+    "hdr_length": 2580,
+    "id": "CM4CODE_AB",
+    "file_name": "PM_nemol_cm4_AB.bin",
+    "size": 465384,
+    "data_offset": 40364112,
+    "file_flag": 1,
+    "check_flag": 1,
+    "can_omit": 0,
+    "addr_num": 1,
+    "addrs": [
+      "0x90000018"
+    ],
+    "extracted_as": "PM_nemol_cm4_AB.bin",
+    "sha256": "fe4edf664575d484d03bfd4fab63ae842f2f532e2dca78bc4477cdfd272dd3ca"
+  },
+  {
+    "index": 23,
+    "hdr_length": 2580,
+    "id": "DeltaNV",
+    "file_name": "FF618V01_48X128_QVGA_CF8_HMD_SKU3_BASE_6325_deltanv.bin",
+    "size": 56,
+    "data_offset": 40829496,
+    "file_flag": 1,
+    "check_flag": 1,
+    "can_omit": 0,
+    "addr_num": 1,
+    "addrs": [
+      "0x90000019"
+    ],
+    "extracted_as": "FF618V01_48X128_QVGA_CF8_HMD_SKU3_BASE_6325_deltanv.bin",
+    "sha256": "1ba805a592351d3159dbf645df12214e3d9557fbc26a3c049a8b2c0d160b6f41"
+  },
+  {
+    "index": 24,
+    "hdr_length": 2580,
+    "id": "APN",
+    "file_name": "apn.bin",
+    "size": 538534,
+    "data_offset": 40829552,
+    "file_flag": 1,
+    "check_flag": 1,
+    "can_omit": 1,
+    "addr_num": 1,
+    "addrs": [
+      "0x9000001b"
+    ],
+    "extracted_as": "apn.bin",
+    "sha256": "19ddcc30d1211d98a6ae45192a6f5329cb16461428cda0261512786541210302"
+  },
+  {
+    "index": 25,
+    "hdr_length": 2580,
+    "id": "IMSToggle",
+    "file_name": "ims_toggle.bin",
+    "size": 256,
+    "data_offset": 41368086,
+    "file_flag": 1,
+    "check_flag": 1,
+    "can_omit": 1,
+    "addr_num": 1,
+    "addrs": [
+      "0x9000001d"
+    ],
+    "extracted_as": "ims_toggle.bin",
+    "sha256": "3d6876a0146de8576eb2395a858de1213d1b92c65b779df3a331cfd5a4584546"
+  },
+  {
+    "index": 26,
+    "hdr_length": 2580,
+    "id": "EraseUserNV",
+    "file_name": "EraseUserNV.bin",
+    "size": 0,
+    "data_offset": 0,
+    "file_flag": 0,
+    "check_flag": 1,
+    "can_omit": 0,
+    "addr_num": 1,
+    "addrs": [
+      "0x9000001a"
+    ],
+    "extracted_as": "EraseUserNV.bin",
+    "sha256": null,
+    "note": "no payload (operation-only or empty)"
+  },
+  {
+    "index": 27,
+    "hdr_length": 2580,
+    "id": "Erase FS",
+    "file_name": "Erase FS.bin",
+    "size": 0,
+    "data_offset": 0,
+    "file_flag": 0,
+    "check_flag": 1,
+    "can_omit": 1,
+    "addr_num": 1,
+    "addrs": [
+      "0x80000008"
+    ],
+    "extracted_as": "Erase FS.bin",
+    "sha256": null,
+    "note": "no payload (operation-only or empty)"
+  },
+  {
+    "index": 28,
+    "hdr_length": 2580,
+    "id": "",
+    "file_name": "UMS9117.xml",
+    "size": 16767,
+    "data_offset": 41368342,
+    "file_flag": 2,
+    "check_flag": 0,
+    "can_omit": 0,
+    "addr_num": 0,
+    "addrs": [],
+    "extracted_as": "UMS9117.xml",
+    "sha256": "a831ff0b9668c873b83c0c4af99f8598d32459251521567cf6936797bbe81439"
+  }
+]

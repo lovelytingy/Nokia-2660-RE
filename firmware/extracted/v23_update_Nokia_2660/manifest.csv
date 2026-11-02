@@ -1,0 +1,30 @@
+index,id,file_name,extracted_as,size,data_offset,file_flag,check_flag,can_omit,addrs,sha256,note
+0,FDL,fdl1.bin,fdl1.bin,32596,76944,257,1,0,0x40000000,2d1629db408dbfa08965eaa83cde41d963cf1d26a1aa09f6ab5b87e34b16c390,
+1,FDL2,fdl2.bin,fdl2.bin,63924,109540,257,1,0,0x0,a3a695c3a02cf206448d60c7e7a32df809b928a8c9a3bbd79f8de8aa462ec2b0,
+2,NV,FF618V01_48X128_QVGA_CF8_HMD_SKU3_BASE_6325_nvitem_MH_13ARA80IN00.bin,FF618V01_48X128_QVGA_CF8_HMD_SKU3_BASE_6325_nvitem_MH_13ARA80IN00.bin,841860,173464,1,1,0,0x90000001,a4a1d1f89d04fcbeee5c3056e357dfa8e7f314b2cdd2695949c674038242f442,
+3,BOOT0,boot0.bin,boot0.bin,31620,1015324,1,1,0,0x80000001,f9a446bb90d338a72275d338fcc6ddbcdf2b9cabf842babaa90814efde33b281,
+4,BOOT1,boot1.bin,boot1.bin,161364,1046944,1,1,0,0x80000002,84198efccac0a34a513c2997b25ae1ff3d4a21055f133604b35956fdfee38028,
+5,UserImg,EXEC_USER_IMAGE.bin,EXEC_USER_IMAGE.bin,11834228,1208308,1,1,0,0x80000004,00da688f51fc66d874f88e6ed5849dbd79cb51cdc6e04271bdf0f0724783c777,
+6,MMIRes,mmi_res_240X320_MH.bin,mmi_res_240X320_MH.bin,8489672,13042536,1,1,0,0x90000004,14f31f4f1f5fee88b67b8a966690d0d0f236790544dbeca62eb00a77cf0b6a2e,
+7,GSMDSPCODE,NEMOL_CAT1_EVS_DM_DSP.bin,NEMOL_CAT1_EVS_DM_DSP.bin,2654208,21532208,1,1,0,0x90000005,5515ec5b9f55742255efddfb8881399903f246594dc192b8b3e939a1daa7dd4e,
+8,LTEDSPCODE,T117_CAT1_LTEA_DSP.bin,T117_CAT1_LTEA_DSP.bin,3145728,24186416,1,1,0,0x90000012,ab1c100cae509d2e5af54791f5c5195fbf9398c36aa514cff1608a132dc03be5,
+9,OmadmFota,OmadmFota.bin,OmadmFota.bin,0,0,1,0,1,0x90000008,,no payload (operation-only or empty)
+10,Preload_Hidden,Preload_Hidden.bin,Preload_Hidden.bin,0,0,1,0,1,0x90000007,,no payload (operation-only or empty)
+11,PreloadUdisk,PreloadUdisk.bin,PreloadUdisk.bin,0,0,1,0,1,0x80000008,,no payload (operation-only or empty)
+12,RomDisk,RomDisk.bin,RomDisk.bin,0,0,1,0,1,0x9000000e,,no payload (operation-only or empty)
+13,ERASE HIDDEN_DISK_C,ERASE HIDDEN_DISK_C.bin,ERASE HIDDEN_DISK_C.bin,0,0,0,1,1,0x90000007,,no payload (operation-only or empty)
+14,EraseRunNV,EraseRunNV.bin,EraseRunNV.bin,0,0,0,1,0,0x90000003,,no payload (operation-only or empty)
+15,XFILE,XFILE.bin,XFILE.bin,0,0,0,0,1,0x90000016,,no payload (operation-only or empty)
+16,AUTOSMS,AUTOSMS.bin,AUTOSMS.bin,0,0,0,0,1,0x90000017,,no payload (operation-only or empty)
+17,EraseDU,EraseDU.bin,EraseDU.bin,0,0,0,1,0,0x9000000a,,no payload (operation-only or empty)
+18,PhaseCheck,PhaseCheck.bin,PhaseCheck.bin,0,0,0,1,0,0x90000002,,no payload (operation-only or empty)
+19,KernelImg,EXEC_KERNEL_IMAGE.bin,EXEC_KERNEL_IMAGE.bin,12976468,27332144,1,1,0,0x80000003,84fe0d7a5226d766d9f2d99c9a6e88426e9ad09d7b1290ad9ab9cb6eb085034b,
+20,CM4CODE,PM_nemol_cm4.bin,PM_nemol_cm4.bin,55500,40308612,1,1,0,0x90000013,e708f6f0e27b140d1c7c0f2422735f8b267f126f730a0742a78abd9d0eb88878,
+21,WIFICODE,WIFICODE.bin,WIFICODE.bin,0,0,1,0,1,0x90000014,,no payload (operation-only or empty)
+22,CM4CODE_AB,PM_nemol_cm4_AB.bin,PM_nemol_cm4_AB.bin,465384,40364112,1,1,0,0x90000018,fe4edf664575d484d03bfd4fab63ae842f2f532e2dca78bc4477cdfd272dd3ca,
+23,DeltaNV,FF618V01_48X128_QVGA_CF8_HMD_SKU3_BASE_6325_deltanv.bin,FF618V01_48X128_QVGA_CF8_HMD_SKU3_BASE_6325_deltanv.bin,56,40829496,1,1,0,0x90000019,1ba805a592351d3159dbf645df12214e3d9557fbc26a3c049a8b2c0d160b6f41,
+24,APN,apn.bin,apn.bin,538534,40829552,1,1,1,0x9000001b,19ddcc30d1211d98a6ae45192a6f5329cb16461428cda0261512786541210302,
+25,IMSToggle,ims_toggle.bin,ims_toggle.bin,256,41368086,1,1,1,0x9000001d,3d6876a0146de8576eb2395a858de1213d1b92c65b779df3a331cfd5a4584546,
+26,EraseUserNV,EraseUserNV.bin,EraseUserNV.bin,0,0,0,1,0,0x9000001a,,no payload (operation-only or empty)
+27,Erase FS,Erase FS.bin,Erase FS.bin,0,0,0,1,1,0x80000008,,no payload (operation-only or empty)
+28,,UMS9117.xml,UMS9117.xml,16767,41368342,2,0,0,,a831ff0b9668c873b83c0c4af99f8598d32459251521567cf6936797bbe81439,

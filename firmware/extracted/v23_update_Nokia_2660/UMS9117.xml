@@ -1,0 +1,606 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--  FlashTypeID: 0, means Nor Flash;1, means Nand Flash       -->
+<!--  File-Flag: 0, means this file need not  input file path   -->
+<!--             1, means this file need input file path        -->
+<!--  File-CheckFlag: 0, this file is optional                  -->
+<!--                  1, must select this file                  -->
+<!--                  2, means not check this file in pack      -->
+<!--  Mode: 0, means single mode; 1, means DualMode             -->
+<!--  File-Type: MasterImage,means it will add BOOT_PARAM       -->
+<!--             and OS_INFO information to file                -->
+<!--  File-ID: Can not be changed,it is used by tools           -->
+<!--  File-IDAlias: This is  for GUI display can be changed     -->
+<BMAConfig>
+	<ProductList>
+		<Product name="UMS9117">
+			<SchemeName>UMS9117</SchemeName>
+			<FlashTypeID>1</FlashTypeID>
+			<Mode>0</Mode>
+			<NvBaseAddrChangeFlag>0</NvBaseAddrChangeFlag>
+			<NvNewBasePosition>1</NvNewBasePosition>
+			<NVOrgFlag>1</NVOrgFlag>
+			<NVOrgBasePosition>1</NVOrgBasePosition>
+			<OmaDMFlag>1</OmaDMFlag>
+			<RebootByAT>0</RebootByAT>
+			<NVBackup backup="1">
+				<NVItem name="Calibration" backup="1">
+					<ID>0xFFFFFFFF</ID>
+					<BackupFlag use="1">
+						<NVFlag name ="Replace" check ="0"></NVFlag>
+						<NVFlag name ="Continue" check ="0"></NVFlag>
+					</BackupFlag>
+				</NVItem>
+				<NVItem name="IMEI" backup="1">
+					<ID>0xFFFFFFFF</ID>
+					<BackupFlag use="1">
+						<NVFlag name ="Continue" check ="0"></NVFlag>
+					</BackupFlag>
+				</NVItem>
+				<NVItem name="LTE_gain_table" backup="1">
+					<ID>0xA2C</ID>
+					<BackupFlag use="1">
+						<NVFlag name="Continue" check="0"></NVFlag>
+					</BackupFlag>
+				</NVItem>
+				<NVItem name="LTE_Calibration" backup="1">
+					<ID>0xA05</ID>
+					<BackupFlag use="1">
+						<NVFlag name="Replace" check="0"></NVFlag>
+						<NVFlag name="Continue" check="0"></NVFlag>
+					</BackupFlag>
+				</NVItem>
+				<NVItem name="LTE_Cali_Band1" backup="1">
+					<ID>0x9C4</ID>
+					<BackupFlag use="1">
+						<NVFlag name="Continue" check="0"></NVFlag>
+					</BackupFlag>
+				</NVItem>
+				<NVItem name="LTE_Cali_Band2" backup="1">
+					<ID>0xA04</ID>
+					<BackupFlag use="1">
+						<NVFlag name="Continue" check="0"></NVFlag>
+					</BackupFlag>
+				</NVItem>
+				<NVItem name="LTE_Cali_Band3" backup="1">
+					<ID>0x9C8</ID>
+					<BackupFlag use="1">
+						<NVFlag name="Continue" check="0"></NVFlag>
+					</BackupFlag>
+				</NVItem>
+				<NVItem name="LTE_Cali_Band4" backup="1">
+					<ID>0x9C9</ID>
+					<BackupFlag use="1">
+						<NVFlag name="Continue" check="0"></NVFlag>
+					</BackupFlag>
+				</NVItem>
+				<NVItem name="LTE_Cali_Band5" backup="1">
+					<ID>0x9CA</ID>
+					<BackupFlag use="1">
+						<NVFlag name="Continue" check="0"></NVFlag>
+					</BackupFlag>
+				</NVItem>
+				<NVItem name="LTE_Cali_Band6" backup="1">
+					<ID>0x9CB</ID>
+					<BackupFlag use="1">
+						<NVFlag name="Continue" check="0"></NVFlag>
+					</BackupFlag>
+				</NVItem>
+				<NVItem name="LTE_Cali_Band7" backup="1">
+					<ID>0x9CC</ID>
+					<BackupFlag use="1">
+						<NVFlag name="Continue" check="0"></NVFlag>
+					</BackupFlag>
+				</NVItem>
+				<NVItem name="LTE_Cali_Band8" backup="1">
+					<ID>0x9CD</ID>
+					<BackupFlag use="1">
+						<NVFlag name="Continue" check="0"></NVFlag>
+					</BackupFlag>
+				</NVItem>
+				<NVItem name="LTE_Cali_Band9" backup="1">
+					<ID>0x9CE</ID>
+					<BackupFlag use="1">
+						<NVFlag name="Continue" check="0"></NVFlag>
+					</BackupFlag>
+				</NVItem>
+				<NVItem name="LTE_Cali_Band10" backup="1">
+					<ID>0x9CF</ID>
+					<BackupFlag use="1">
+						<NVFlag name="Continue" check="0"></NVFlag>
+					</BackupFlag>
+				</NVItem>
+				<NVItem name="LTE_Cali_Band11" backup="1">
+					<ID>0x9D0</ID>
+					<BackupFlag use="1">
+						<NVFlag name="Continue" check="0"></NVFlag>
+					</BackupFlag>
+				</NVItem>
+				<NVItem name="LTE_Cali_Band12" backup="1">
+					<ID>0x9D1</ID>
+					<BackupFlag use="1">
+						<NVFlag name="Continue" check="0"></NVFlag>
+					</BackupFlag>
+				</NVItem>
+				<NVItem name="LTE_Cali_Band13" backup="1">
+					<ID>0x9D2</ID>
+					<BackupFlag use="1">
+						<NVFlag name="Continue" check="0"></NVFlag>
+					</BackupFlag>
+				</NVItem>
+				<NVItem name="LTE_Cali_Band14" backup="1">
+					<ID>0x9D3</ID>
+					<BackupFlag use="1">
+						<NVFlag name="Continue" check="0"></NVFlag>
+					</BackupFlag>
+				</NVItem>
+				<NVItem name="LTE_Cali_Band15" backup="1">
+					<ID>0x9D4</ID>
+					<BackupFlag use="1">
+						<NVFlag name="Continue" check="0"></NVFlag>
+					</BackupFlag>
+				</NVItem>
+				<NVItem name="LTE_Cali_Band16" backup="1">
+					<ID>0x9D5</ID>
+					<BackupFlag use="1">
+						<NVFlag name="Continue" check="0"></NVFlag>
+					</BackupFlag>
+				</NVItem>
+				<NVItem name="LTE_Cali_Band17" backup="1">
+					<ID>0x9D6</ID>
+					<BackupFlag use="1">
+						<NVFlag name="Continue" check="0"></NVFlag>
+					</BackupFlag>
+				</NVItem>
+				<NVItem name="LTE_Cali_Band18" backup="1">
+					<ID>0x9D7</ID>
+					<BackupFlag use="1">
+						<NVFlag name="Continue" check="0"></NVFlag>
+					</BackupFlag>
+				</NVItem>
+				<NVItem name="LTE_Cali_Band19" backup="1">
+					<ID>0xA01</ID>
+					<BackupFlag use="1">
+						<NVFlag name="Continue" check="0"></NVFlag>
+					</BackupFlag>
+				</NVItem>
+				<NVItem name="LTE_Cali_Band20" backup="1">
+					<ID>0xA02</ID>
+					<BackupFlag use="1">
+						<NVFlag name="Continue" check="0"></NVFlag>
+					</BackupFlag>
+				</NVItem>
+				<NVItem name="LTE_Cali_Band21" backup="1">
+					<ID>0xA08</ID>
+					<BackupFlag use="1">
+						<NVFlag name="Continue" check="1"></NVFlag>
+					</BackupFlag>
+				</NVItem>
+				<NVItem name="LTE_Cali_Band22" backup="1">
+					<ID>0xA09</ID>
+					<BackupFlag use="1">
+						<NVFlag name="Continue" check="1"></NVFlag>
+					</BackupFlag>
+				</NVItem>
+				<NVItem name="LTE_Cali_Band23" backup="1">
+					<ID>0xA0A</ID>
+					<BackupFlag use="1">
+						<NVFlag name="Continue" check="1"></NVFlag>
+					</BackupFlag>
+				</NVItem>
+				<NVItem name="W_Calibration" backup="1">
+					<ID>0x12D</ID>
+					<BackupFlag use="1">
+						<NVFlag name="Continue" check="0"></NVFlag>
+					</BackupFlag>
+				</NVItem>
+				<NVItem name="AFC" backup="1">
+					<ID>0x9C7</ID>
+					<BackupFlag use="1">
+						<NVFlag name="Continue" check="1"></NVFlag>
+					</BackupFlag>
+				</NVItem>
+				<NVItem name="GSM_Agc_Cali" backup="1">
+					<ID>0x4</ID>
+					<BackupFlag use="1">
+						<NVFlag name="Replace" check="0"></NVFlag>
+					</BackupFlag>
+				</NVItem>
+				<NVItem name="SIMLOCK_SIGN" backup="1">
+					<ID>0x91C</ID>
+					<BackupFlag use="1">
+						<NVFlag name="Continue" check="1"></NVFlag>
+					</BackupFlag>
+				</NVItem>
+				<NVItem name="SIMLOCK_PK" backup="1">
+					<ID>0x91E</ID>
+					<BackupFlag use="1">
+						<NVFlag name="Continue" check="1"></NVFlag>
+					</BackupFlag>
+				</NVItem>
+				<NVItem name="SIMLOCK_CUSTOMIZE_DATA" backup="1">
+					<ID>0x1F0</ID>
+					<BackupFlag use="1">
+						<NVFlag name="Continue" check="1"></NVFlag>
+					</BackupFlag>
+				</NVItem>
+				<NVItem name="SIMLOCK_USER_DATA" backup="1">
+					<ID>0x1F1</ID>
+					<BackupFlag use="1">
+						<NVFlag name="Continue" check="1"></NVFlag>
+					</BackupFlag>
+				</NVItem>
+				<NVItem name="SIMLOCK_NVCONTROL_KEY" backup="1">
+					<ID>0x1F2</ID>
+					<BackupFlag use="1">
+						<NVFlag name="Continue" check="1"></NVFlag>
+					</BackupFlag>
+				</NVItem>
+				<NVItem name="SIMLOCK_KEY" backup="1">
+					<ID>0x1F4</ID>
+					<BackupFlag use="1">
+						<NVFlag name="Continue" check="1"></NVFlag>
+					</BackupFlag>
+				</NVItem>
+				<NVItem name="SIMLOCK_CFG" backup="1">
+					<ID>0x7E4</ID>
+					<BackupFlag use="1">
+						<NVFlag name="Continue" check="1"></NVFlag>
+					</BackupFlag>
+				</NVItem>
+				<NVItem name="GSM_rf_8psk_tx_gain_table" backup="1">
+					<ID>0xAA3</ID>
+					<BackupFlag use="1">
+						<NVFlag name="Continue" check="0"></NVFlag>
+					</BackupFlag>
+				</NVItem>
+				<NVItem name="BT_CONFIG" backup="1">
+					<ID>0x191</ID>
+					<BackupFlag use="1">
+						<NVFlag name="Continue" check="1"></NVFlag>
+					</BackupFlag>
+				</NVItem>
+				<NVItem name="Ali_DATA" backup="1">
+					<ID>0xB18</ID>
+					<BackupFlag use="1">
+						<NVFlag name="Replace" check="1"></NVFlag>
+						<NVFlag name="Continue" check="1"></NVFlag>
+					</BackupFlag>
+				</NVItem>
+			</NVBackup>
+			<ProductComment/>
+		</Product>
+	</ProductList>
+	<SchemeList>
+		<Scheme name="UMS9117">
+			<File>
+				<ID>FDL</ID>
+				<IDAlias>FDL1</IDAlias>
+				<Type>FDL</Type>
+				<Block>
+					<Base>0x6200</Base>
+					<Size>0x0</Size>
+				</Block>
+				<Flag>1</Flag>
+				<CheckFlag>1</CheckFlag>
+				<Description>First nand flash download image file</Description>
+			</File>
+			<File>
+				<ID>FDL2</ID>
+				<IDAlias>FDL2</IDAlias>
+				<Type>NAND_FDL</Type>
+				<Block>
+					<Base>0x80100000</Base>
+					<Size>0x0</Size>
+				</Block>
+				<Flag>1</Flag>
+				<CheckFlag>1</CheckFlag>
+				<Description>Second nand flash download image file</Description>
+			</File>
+			<File>
+				<ID>NV</ID>
+				<IDAlias>NV</IDAlias>
+				<Type>NV_NAND</Type>
+				<Block>
+					<Base>0x90000001</Base>
+					<Size>0x0</Size>
+				</Block>
+				<Block>
+					<Base>0x9000000C</Base>
+					<Size>0x0</Size>
+				</Block>
+				<Flag>1</Flag>
+				<CheckFlag>0</CheckFlag>
+				<Description>Download-NV image file</Description>
+			</File>
+			<File>
+				<ID>BOOT0</ID>
+				<IDAlias>BOOT0</IDAlias>
+				<Type>BOOT_LOADER</Type>
+				<Block>
+					<Base>0x80000001</Base>
+					<Size>0x0</Size>
+				</Block>
+				<Flag>1</Flag>
+				<CheckFlag>0</CheckFlag>
+				<Description>Boot0 image file</Description>
+			</File>
+			<File>
+				<ID>BOOT1</ID>
+				<IDAlias>BOOT1</IDAlias>
+				<Type>BOOT_LOADER</Type>
+				<Block>
+					<Base>0x80000002</Base>
+					<Size>0x0</Size>
+				</Block>
+				<Flag>1</Flag>
+				<CheckFlag>0</CheckFlag>
+				<Description>Boot1 image file</Description>
+			</File>
+			<File>
+				<ID>UserImg</ID>
+				<IDAlias>USER_IMG</IDAlias>
+				<Type>CODE</Type>
+				<Block>
+					<Base>0x80000004</Base>
+					<Size>0x0</Size>
+				</Block>
+				<Flag>1</Flag>
+				<CheckFlag>0</CheckFlag>
+				<Description>User image file</Description>
+			</File>
+			<File>
+				<ID>MMIRes</ID>
+				<IDAlias>MMIRES</IDAlias>
+				<Type>CODE</Type>
+				<Block>
+					<Base>0x90000004</Base>
+					<Size>0x0</Size>
+				</Block>
+				<Flag>1</Flag>
+				<CheckFlag>2</CheckFlag>
+				<Description>MMI resource image file</Description>
+			</File>
+			<File>
+				<ID>GSMDSPCODE</ID>
+				<IDAlias>G_DSPCODE</IDAlias>
+				<Type>CODE</Type>
+				<Block>
+					<Base>0x90000006</Base>
+					<Size>0x0</Size>
+				</Block>
+				<Flag>1</Flag>
+				<CheckFlag>0</CheckFlag>
+				<Description>GSM DSP code image file</Description>
+			</File>
+			<File>
+				<ID>LTEDSPCODE</ID>
+				<IDAlias>LTE_DSPCODE</IDAlias>
+				<Type>CODE</Type>
+				<Block>
+					<Base>0x90000005</Base>
+					<Size>0x0</Size>
+				</Block>
+				<Flag>1</Flag>
+				<CheckFlag>2</CheckFlag>
+				<Description>LTE DSP code image file</Description>
+			</File>
+			<File>
+				<ID>OmadmFota</ID>
+				<IDAlias>OMADM_FOTA</IDAlias>
+				<Type>CODE</Type>
+				<Block>
+					<Base>0x90000008</Base>
+					<Size>0x0</Size>
+				</Block>		
+				<Flag>1</Flag>
+				<CheckFlag>2</CheckFlag>
+				<Description>Device management upgrade imgage file, depended on FDL2</Description>
+			</File>	
+			<File>
+				<ID>Preload_Hidden</ID>
+				<IDAlias>PRELOAD_HIDDEN</IDAlias>
+				<Type>CODE</Type>
+				<Block>
+					<Base>0x90000007</Base>
+					<Size>0x4000</Size>
+				</Block>
+				<Flag>1</Flag>
+				<CheckFlag>2</CheckFlag>
+				<Description>Hiden image file, depended on FDL2</Description>
+			</File>
+			<File>
+				<ID>PreloadUdisk</ID>
+				<IDAlias>PRELOAD_UDISK</IDAlias>
+				<Type>CODE</Type>
+				<Block>
+					<Base>0x80000008</Base>
+					<Size>0x4000</Size>
+				</Block>		
+				<Flag>1</Flag>
+				<CheckFlag>2</CheckFlag>
+				<Description>Hiden image file, depended on FDL2</Description>
+			</File>
+			<File>
+				<ID>XFILE</ID>
+				<IDAlias>XFILE</IDAlias>
+				<Type>EraseFlash</Type>
+				<Block>
+					<Base>0x90000016</Base>
+					<Size>0x20000</Size>
+				</Block>
+				<Flag>0</Flag>
+				<CheckFlag>2</CheckFlag>
+				<Description>XFILEDUMP</Description>
+			</File>
+			<File>
+				<ID>AUTOSMS</ID>
+				<IDAlias>AUTOSMS</IDAlias>
+				<Type>EraseFlash</Type>
+				<Block>
+					<Base>0x90000017</Base>
+					<Size>0x20000</Size>
+				</Block>
+				<Flag>0</Flag>
+				<CheckFlag>2</CheckFlag>
+				<Description>AUTOSMS</Description>
+			</File>
+			<File>
+				<ID>CM4CODE</ID>
+				<IDAlias>CM4CODE</IDAlias>
+				<Type>CODE</Type>
+				<Block>
+					<Base>0x90000013</Base>
+					<Size>0x0</Size>
+				</Block>
+				<Flag>1</Flag>
+				<CheckFlag>2</CheckFlag>
+				<Description>CM4CODE </Description>
+			</File>
+			<File>
+				<ID>CM4CODE_AB</ID>
+				<IDAlias>CM4CODE_AB</IDAlias>
+				<Type>CODE</Type>
+				<Block>
+					<Base>0x90000018</Base>
+					<Size>0x0</Size>
+				</Block>
+				<Flag>1</Flag>
+				<CheckFlag>2</CheckFlag>
+				<Description>CM4CODE </Description>
+			</File>
+			<File>
+				<ID>WIFICODE</ID>
+				<IDAlias>WIFICODE</IDAlias>
+				<Type>CODE</Type>
+				<Block>
+					<Base>0x90000014</Base>
+					<Size>0x0</Size>
+				</Block>
+				<Flag>1</Flag>
+				<CheckFlag>2</CheckFlag>
+				<Description>WIFIBSPCODE</Description>
+			</File>
+			<File>
+				<ID>RomDisk</ID>
+				<IDAlias>ROM_DISK</IDAlias>
+				<Type>CODE</Type>
+				<Block>
+					<Base>0x9000000E</Base>
+					<Size>0x0</Size>
+				</Block>
+				<Flag>1</Flag>
+				<CheckFlag>2</CheckFlag>
+				<Description>Be used to drivers auto run, depended on FDL2</Description>
+			</File>
+			<File>
+				<ID>ERASE HIDDEN_DISK_C</ID>
+				<IDAlias>ERASE HIDDEN_DISK_C</IDAlias>
+				<Type>EraseFlash</Type>
+				<Block>
+					<Base>0x90000007</Base>
+					<Size>0x0000</Size>
+				</Block>
+				<Flag>0</Flag>
+				<CheckFlag>0</CheckFlag>
+				<Description>Erase hidden disk c section operation</Description>
+			</File>
+			<File>
+				<ID>DeltaNV</ID>
+				<IDAlias>DeltaNV</IDAlias>
+				<Type>CODE</Type>
+				<Block>
+					<Base>0x90000019</Base>
+					<Size>0x0</Size>
+				</Block>
+				<Flag>1</Flag>
+				<CheckFlag>2</CheckFlag>
+				<Description>Delta NV image file</Description>
+			</File>
+			<File>
+				<ID>APN</ID>
+				<IDAlias>APN</IDAlias>
+				<Type>CODE</Type>
+				<Block>
+					<Base>0x9000001b</Base>
+					<Size>0x0</Size>
+				</Block>
+				<Flag>1</Flag>
+				<CheckFlag>2</CheckFlag>
+				<Description>APN image file,FOR Config APN OTA</Description>
+			</File>
+			<File>
+				<ID>IMSToggle</ID>
+				<IDAlias>IMSToggle</IDAlias>
+				<Type>CODE</Type>
+				<Block>
+					<Base>0x9000001d</Base>
+					<Size>0x0</Size>
+				</Block>
+				<Flag>1</Flag>
+				<CheckFlag>2</CheckFlag>
+				<Description>IMSToggle image file,FOR Config IMS OTA</Description>
+			</File>
+			<File>
+				<ID>EraseUserNV</ID>
+				<IDAlias>EraseUserNV</IDAlias>
+				<Type>EraseFlash</Type>
+				<Block>
+					<Base>0x9000001a</Base>
+					<Size>0x4000</Size>
+				</Block>
+				<Flag>0</Flag>
+				<CheckFlag>0</CheckFlag>
+				<Description>Erase User-NV section operation</Description>
+			</File>
+			<File>
+				<ID>EraseRunNV</ID>
+				<IDAlias>EraseRunNV</IDAlias>
+				<Type>EraseFlash</Type>
+				<Block>
+					<Base>0x90000003</Base>
+					<Size>0x4000</Size>
+				</Block>
+				<Flag>0</Flag>
+				<CheckFlag>0</CheckFlag>
+				<Description>Erase running-NV section operation</Description>
+			</File>
+			<File>
+				<ID>PhaseCheck</ID>
+				<IDAlias>PHASE_CHECK</IDAlias>
+				<Type>CODE</Type>
+				<Block>
+					<Base>0x90000002</Base>
+					<Size>0x0</Size>
+				</Block>
+				<Flag>0</Flag>
+				<CheckFlag>0</CheckFlag>
+				<Description>Producing phases information section</Description>
+			</File>
+			<File>
+				<ID>KernelImg</ID>
+				<IDAlias>KERNEL_IMG</IDAlias>
+				<Type>CODE</Type>
+				<Block>
+					<Base>0x80000003</Base>
+					<Size>0x0</Size>
+				</Block>
+				<Flag>1</Flag>
+				<CheckFlag>0</CheckFlag>
+				<Description>Kernel image file</Description>
+			</File>
+			<File>
+				<ID>Erase FS</ID>
+				<IDAlias>Erase FS</IDAlias>
+				<Type>EraseFlash</Type>
+				<Block>
+					<Base>0x80000008</Base>
+					<Size>0x4000</Size>
+				</Block>
+				<Flag>0</Flag>
+				<CheckFlag>0</CheckFlag>
+				<Description>Erase File System</Description>
+			</File>
+
+		</Scheme>	
+	</SchemeList>
+</BMAConfig>

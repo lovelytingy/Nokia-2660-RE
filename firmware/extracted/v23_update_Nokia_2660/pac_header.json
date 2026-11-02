@@ -1,0 +1,16 @@
+{
+  "version": "BP_R1.0.0",
+  "declared_size": 41385109,
+  "actual_size": 41385109,
+  "product_name": "UMS9117",
+  "product_version": "MOCOR_MOCOR_20A_MP_W22.04.6_P5",
+  "file_count": 29,
+  "file_table_offset": 2124,
+  "mode": 0,
+  "flash_type": "NAND",
+  "nand_strategy": 0,
+  "is_nv_backup": 1,
+  "magic": "0xfffafffa",
+  "crc1": 36000,
+  "crc2": 24520
+}
