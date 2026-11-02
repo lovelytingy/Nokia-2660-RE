@@ -29,7 +29,7 @@ Full device page: [docs/device.md](docs/device.md).
 - [x] Obtain MOCOR PAC sample (NV name matches Indian NDT `MH_13ARA80IN00`)
 - [x] Identify firmware format (`BP_R1.0.0` PAC)
 - [x] Draft boot/download chain (FDL1 → FDL2; boot0 → boot1) — [docs/Boot Process.md](docs/Boot%20Process.md)
-- [ ] Version-matched TA-1480 dump / confirmed-safe flash package
+- [x] Version-matched TA-1480 dump (`10.02.17.00` / `MOCOR_...W22.04.6_P4_Release`) — [firmware/dumps/ta1480_10.02.17.00](firmware/dumps/ta1480_10.02.17.00)
 - [ ] Find application loader
 - [ ] Execute custom code safely
 

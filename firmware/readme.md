@@ -64,3 +64,17 @@ Human summary: [`docs/Flash Layout.md`](../docs/Flash%20Layout.md), [`docs/firmw
 - India-series only unless you verify another region’s NDT/PAC.
 - Do not flash until software/PAC version match is confirmed.
 - **Git:** `.pac` / `.bin` files are gitignored. Commit manifests (`manifest.csv`, `pac_header.json`, `UMS9117.xml`) only; keep binaries local after extract.
+
+---
+
+## Firmware 002 — Reference Device Dump (TA-1480, v10.02.17.00)
+
+Authentic partition dump read directly from the physical reference device via `spd_dump` in download mode:
+
+* **Model:** Nokia 2660 Flip (TA-1480, HW3.0, India NDT `MH_13ARA80IN00_0`)
+* **Software Version:** `10.02.17.00`
+* **MOCOR Build:** `MOCOR_20A_MP_W22.04.6_P4_Release`
+* **Directory:** [`firmware/dumps/ta1480_10.02.17.00/`](dumps/ta1480_10.02.17.00/)
+* **Manifest:** [`dumps/ta1480_10.02.17.00/manifest.csv`](dumps/ta1480_10.02.17.00/manifest.csv)
+
+Includes: `boot0`, `boot1`, `kernel`, `user`, `nvitem`, `mmi_res`, `lte_dsp`, `gsm_dsp`, `pm_cm4`.

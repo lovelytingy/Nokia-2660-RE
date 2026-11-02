@@ -3,6 +3,7 @@
 | Script | Purpose |
 |--------|---------|
 | `extract_pac.py` | Unpack Unisoc/Spreadtrum `BP_R1.0.0` `.pac` → images + `manifest.csv` |
+| `dump_device.sh` | Dump firmware partitions from Nokia 2660 Flip over USB using `spd_dump` |
 | `extract_strings.py` | Placeholder — help wanted |
 | `mocor-info.py` | Placeholder — help wanted |
 

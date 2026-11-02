@@ -60,3 +60,13 @@ captures/logs/
 .cache/
 tmp/
 temp/
+
+# Locally built / vendor tools
+tools/spd_dump
+tools/spd_dump-macos/
+
+# Firmware dumps (binaries ignored, keep manifests)
+firmware/dumps/**/*.bin
+!firmware/dumps/**/
+!firmware/dumps/**/*.md
+!firmware/dumps/**/*.csv
