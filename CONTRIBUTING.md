@@ -8,6 +8,7 @@ Document hardware and firmware, map boot/download modes, understand the MOCOR OS
 
 ## Ground rules
 
+- Read [DISCLAIMER.md](DISCLAIMER.md): **no warranty**; contributors are **not responsible** for bricks or damage.
 - **Do not** flash unconfirmed packages to a daily-driver phone.
 - **Do not** commit large binaries (`.pac`, `.bin`, pcaps). Document SHA-256 + where to get them instead.
 - Prefer small, focused PRs (one topic: docs, tool, analysis note).

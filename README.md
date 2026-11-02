@@ -74,8 +74,16 @@ brew install --cask ghidra    # if not already installed
 
 ## Disclaimer
 
-This is research documentation. Flashing or modifying devices can brick hardware or violate local law / warranty. Do not share IMEI, calibration, or personal data from NV dumps.
+**No warranty. No guarantee. We are not responsible if your device bricks.**
+
+This project is research/education only. Flashing or modifying phones can permanently destroy them, void warranties, or cause data loss. You accept **full responsibility** for anything you do with these notes or tools.
+
+Full text: [DISCLAIMER.md](DISCLAIMER.md).
+
+Do not share IMEI, calibration, or personal data from NV dumps.
 
 ## License
 
-Findings and scripts in this repository are shared for research and education. Upstream firmware remains the property of its respective owners — **do not** redistribute proprietary PAC/images in git; link + hash only.
+Code and documentation in this repository are released under the [MIT License](LICENSE).
+
+Upstream firmware remains the property of its respective owners — **do not** redistribute proprietary PAC/images in git; link + hash only.
