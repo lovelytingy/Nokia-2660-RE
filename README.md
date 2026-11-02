@@ -30,7 +30,7 @@ Full device page: [docs/device.md](docs/device.md).
 - [x] Identify firmware format (`BP_R1.0.0` PAC)
 - [x] Draft boot/download chain (FDL1 → FDL2; boot0 → boot1) — [docs/Boot Process.md](docs/Boot%20Process.md)
 - [x] Version-matched TA-1480 dump (`10.02.17.00` / `MOCOR_...W22.04.6_P4_Release`) — [firmware/dumps/ta1480_10.02.17.00](firmware/dumps/ta1480_10.02.17.00)
-- [ ] Find application loader
+- [x] Find application loader (monolithic native C in `user.bin`; no dynamic J2ME/MRE loader) — [docs/Application Layer.md](docs/Application%20Layer.md)
 - [ ] Execute custom code safely
 
 ## Repo map
@@ -63,7 +63,8 @@ Useful reading order:
 3. [firmware/readme.md](firmware/readme.md) — sample hashes + extract  
 4. [docs/firmware.md](docs/firmware.md) / [docs/Flash Layout.md](docs/Flash%20Layout.md)  
 5. [docs/Boot Process.md](docs/Boot%20Process.md) / [docs/bootrom.md](docs/bootrom.md)  
-6. [ghidra/readme.md](ghidra/readme.md) — load FDL/boot0 in Ghidra  
+6. [docs/Application Layer.md](docs/Application%20Layer.md) — MOCOR application & window architecture  
+7. [ghidra/readme.md](ghidra/readme.md) — load FDL/boot0 in Ghidra  
 
 ## Tools (recommended)
 

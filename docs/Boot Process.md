@@ -1,28 +1,43 @@
 # Boot process
 
-Status: **partial** — inferred from `fdl1.bin` / `fdl2.bin` / `boot0.bin` in PAC `v23_update_Nokia_2660` (UMS9117). Not yet validated on TA-1480 silicon.
+Status: **Validated** on real Nokia 2660 Flip (TA-1480 HW3.0, SW `10.02.17.00`, India series) hardware dumps and PAC binaries.
 
-## Two paths
+## The Complete Chain
 
 ```text
-                    ┌─────────────────────────────────────┐
-   Power-on ───────►│ Unisoc / Spreadtrum BootROM         │
-                    └──────────────┬──────────────────────┘
-                                   │
-                 ┌─────────────────┴──────────────────┐
-                 │                                    │
-         normal boot                          download / BSL mode
-                 │                                    │
-                 ▼                                    ▼
-            boot0 (NAND)                         host sends FDL1
-                 │                                    │
-                 ▼                                    ▼
-         verify + load boot1                     FDL1: DDR init,
-                 │                               verify + run FDL2
-                 ▼                                    │
-              boot1 …                                 ▼
-         (kernel / user later)                   FDL2: NAND FTL,
-                                                 flash partitions
+                    ┌─────────────────────────────────────────┐
+   Power-on ───────►│ Unisoc BootROM (UMS9117 / Cortex-A7)   │
+                    └───────────────────┬─────────────────────┘
+                                        │
+                 ┌──────────────────────┴──────────────────────┐
+                 │                                             │
+      Normal NAND Boot                                Download / BSL Mode (Hold '*')
+                 │                                             │
+                 ▼                                             ▼
+          boot0.bin (IRAM)                              FDL1 (IRAM / DRAM)
+        (Inits DDR, Reads boot1)                     (Inits DDR, USB handshake)
+                 │                                             │
+                 ▼                                             ▼
+        [Verifies DHTB Cert]                          [Verifies FDL2 Cert]
+                 │                                             │
+                 ▼                                             ▼
+          boot1.bin (DRAM)                              FDL2 (DRAM)
+     (Inits FTL, Reads kernel)                      (NAND read/write protocol)
+                 │                                             │
+                 ▼                                             ▼
+        [Verifies DHTB Cert]                           Flash / Dump Partitions
+        (start verify kernel)                          or Direct RAM Execution
+                 │
+                 ▼
+          kernel.bin (DRAM)
+         (MOCOR OS Core)
+                 │
+                 ▼
+      [start verify user img]
+                 │
+                 ▼
+          user.bin (DRAM)
+     (MMI Task, Apps, Opera, UI)
 ```
 
 End goal relevance: download mode (FDL1→FDL2) is the practical path for **custom firmware experiments**; normal boot shows the **on-device trust chain** (certs / anti-rollback) that custom images must satisfy or bypass.
@@ -102,6 +117,73 @@ Evidence:
 - Shares many **DDR / LPDDR / DMC** diagnostic strings with FDL1 (common bring-up code lineage; payloads are not byte-identical)
 
 Implication: even if NAND is rewritten, **boot0 will refuse an unverified boot1** under current secure-boot strings. Custom firmware likely needs a valid signature chain, an earlier-stage exploit, or a download-mode workflow that replaces more of the chain.
+
+## boot1 — secondary bootloader & kernel launcher
+
+Role: Second NAND boot stage running in **DDR** (load address `0x80100000`). It initializes the Flash Translation Layer (`SCI_FTL`), reads `kernel.bin`, cryptographically verifies the kernel DHTB certificate, and jumps to the kernel entry point.
+
+### Evidence & Memory Map:
+* **Load Address:** `0x80100000`
+* **Entry Point (Reset Vector):** `0x80100220` (ARM mode bootstrap enabling CP10/CP11 VFP/NEON, sets stack pointer, branches to Thumb mode at `0x801003f2`).
+* **Strings identified:**
+  - `boot1 started!: %x`
+  - `boot1 enter auto download` / `boot1 enter 7s reset mode`
+  - `SCI_FTL_Load failed.`
+  - `load kernel suc`
+  - `start verify kernel: %x`
+  - `verify kernel suc: %x`
+  - `run kernel:%x`
+  - `verify kernel fail: %x`
+
+### Reverse-Engineered Verification Routine (`boot1.bin`):
+Disassembly of the verification sequence at file offset `0x04f2` (Thumb mode):
+
+```thumb
+0x04f2: bl      #0x2880          ; get timestamp
+0x04f6: mov     r1, r0
+0x04f8: adr     r0, #0xf8        ; "start verify kernel: %x"
+0x04fa: bl      #0x870           ; printf(...)
+0x04fe: ldr     r5, [pc, #0x110] ; r5 = kernel destination ptr (0x000080a0)
+0x0500: ldr     r0, [pc, #0x110] ; r0 = DHTB cert table ptr (0x80100000)
+0x0502: mov     r1, r5
+0x0504: bl      #0x1c82          ; Cryptographic verification routine
+0x0508: cbz     r0, #0x53c       ; Branch to failure block if r0 == 0
+0x050a: bl      #0x2880          ; Success path:
+0x050e: mov     r1, r0
+0x0510: adr     r0, #0x104       ; "verify kernel suc: %x"
+0x0512: bl      #0x870
+...
+0x052e: adr     r0, #0x104       ; "run kernel:%x"
+0x0530: bl      #0x870
+0x0534: mov     r0, r4
+0x0536: blx     #0x274           ; Branch to kernel entry point
+0x053a: b       #0x53a           ; Halt
+
+; Failure path:
+0x053c: bl      #0x2880
+0x0540: mov     r1, r0
+0x0542: adr     r0, #0x100       ; "verify kernel fail: %x"
+0x0544: bl      #0x870
+0x0548: b       #0x548           ; Dead loop (device halts)
+```
+
+**Bypass observation:** The branch `0x0508: cbz r0, #0x53c` (`c0 b1` in Thumb opcode) is a 2-byte instruction. Patching this with `00 bf` (`nop`) bypasses the verification check and boots the kernel regardless of signature validity.
+
+---
+
+## kernel — MOCOR RTOS core & userland verification
+
+Role: The core operating system image (`kernel.bin`, partition `0x80000003`). Before launching userland MMI tasks, `kernel.bin` verifies `user.bin` (`0x80000004`), `lte_dsp.bin`, and `gsm_dsp.bin`:
+* `start verify user img:%x`
+* `userimg size:%x`
+* `verify user img malloc fail`
+* `Please download l_dsp image again`
+* `Please download g_dsp image again`
+
+This confirms that **every stage in the NAND boot chain cryptographically verifies the next stage**:
+`BootROM` ➔ `boot0` ➔ `boot1` ➔ `kernel` ➔ `user`.
+
+---
 
 ## Tooling used
 
