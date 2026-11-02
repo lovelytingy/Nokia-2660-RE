@@ -23,13 +23,13 @@ echo
 
 SCREEN_TARGET="${1:-main}"
 if [[ "${SCREEN_TARGET}" == "cover" ]]; then
-    echo "[*] Display Target: Outer Cover Screen (1.77\")"
-    DISP_ARGS=(--gpio_data -0x28,0x5f --bl_extra rgb=0x19 --bright 80)
+    echo "[*] Display Target: Outer Cover Screen (1.77\" 128x160 GC9104)"
+    DISP_ARGS=(--gpio_data 0x28,-0x5f --bl_extra w=0x2d --bright 80)
 else
     echo "[*] Display Target: Inner Main Screen (2.8\" 240x320 GC9307)"
     echo "    (Make sure to OPEN the flip to view the screen!)"
     echo "    Tip: To test the outer cover screen instead, pass 'cover': ./run_hello_world.sh cover"
-    DISP_ARGS=(--gpio_data 0x28,-0x5f --bl_extra w=0x2d --bright 80)
+    DISP_ARGS=(--gpio_data -0x28,0x5f --bl_extra rgb=0x19 --bright 80)
 fi
 echo
 

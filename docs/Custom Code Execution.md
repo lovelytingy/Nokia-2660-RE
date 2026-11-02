@@ -118,8 +118,8 @@ When code executes under BootROM / FDL1:
 3. **USB Serial & Display Server:** `run_hello_world.sh` seamlessly launches [`libc_server`](file:///Users/lovelytingy/Documents/Personal-Projects/Nokia-2660-RE/tools/ram_payload/bin/libc_server).
 4. **Hardware Initialization:**
    - Evaluates [`pinmap.bin`](file:///Users/lovelytingy/Documents/Personal-Projects/Nokia-2660-RE/tools/ram_payload/data/pinmap.bin) and [`keymap.bin`](file:///Users/lovelytingy/Documents/Personal-Projects/Nokia-2660-RE/tools/ram_payload/data/keymap.bin) (extracted directly from TA-1480 `kernel.bin`).
-   - Powers on the SC2720 PMIC backlight via ADI bus (`--bl_extra w=0x2d`).
-   - Configures the SPI interface and initializes the 240×320 GC9307 display (`--gpio_data 0x28,-0x5f`).
+   - Powers on the SC2720 PMIC backlight via ADI bus (`--bl_extra rgb=0x19`).
+   - Configures the SPI interface and initializes the 240×320 GC9307 display (`--gpio_data -0x28,0x5f`).
 5. **Vibrant On-Screen Rendering:**
    - Allocates an RGB565 framebuffer in DRAM.
    - Renders a midnight blue GUI, glowing pulse card, and scaled 8x16 bitmap font displaying:
