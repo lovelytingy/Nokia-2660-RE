@@ -62,34 +62,33 @@ This repository includes a standalone build and deployment toolchain requiring n
 
 | File | Purpose |
 |------|---------|
-| [`payload.S`](file:///Users/lovelytingy/Documents/Personal-Projects/Nokia-2660-RE/tools/ram_payload/payload.S) | ARMv7-A assembly source code demonstrating hardware control |
-| [`build_payload.py`](file:///Users/lovelytingy/Documents/Personal-Projects/Nokia-2660-RE/tools/ram_payload/build_payload.py) | Compiles assembly with system `clang`, extracts `.text`, encapsulates DHTB header, and verifies with Capstone |
+| [`payload.S`](file:///Users/lovelytingy/Documents/Personal-Projects/Nokia-2660-RE/tools/ram_payload/src/baremetal_asm/payload.S) | ARMv7-A assembly source code demonstrating hardware control |
+| [`build_payload.py`](file:///Users/lovelytingy/Documents/Personal-Projects/Nokia-2660-RE/tools/ram_payload/src/baremetal_asm/build_payload.py) | Compiles assembly with system `clang`, extracts `.text`, encapsulates DHTB header, and verifies with Capstone |
 | [`run_ram_payload.sh`](file:///Users/lovelytingy/Documents/Personal-Projects/Nokia-2660-RE/tools/ram_payload/run_ram_payload.sh) | Automated runner detecting BootROM USB connection and executing payload via `spd_dump` |
-| [`ram_payload.bin`](file:///Users/lovelytingy/Documents/Personal-Projects/Nokia-2660-RE/tools/ram_payload/ram_payload.bin) | Compiled 612-byte binary ready for DRAM execution |
+| [`baremetal_asm.bin`](file:///Users/lovelytingy/Documents/Personal-Projects/Nokia-2660-RE/tools/ram_payload/bin/baremetal_asm.bin) | Compiled 616-byte binary ready for DRAM execution |
 
 ### Building the Payload
 ```bash
-python3 tools/ram_payload/build_payload.py
+python3 tools/ram_payload/src/baremetal_asm/build_payload.py
 ```
 Output:
 ```text
-[+] Assembling tools/ram_payload/payload.S with clang...
-[+] Extracted .text section: 100 bytes
+[+] Assembling tools/ram_payload/src/baremetal_asm/payload.S with clang...
+[+] Extracted .text section: 104 bytes
 
 [+] Disassembly of compiled payload:
-    0x80000200:  cpsid    if
-    0x80000204:  ldr      sp, [pc, #0x40]
-    0x80000208:  ldr      r0, [pc, #0x40]
-    0x8000020C:  ldr      r1, [pc, #0x40]
-    0x80000210:  str      r1, [r0]
-    0x80000214:  ldr      r1, [pc, #0x3c]
-    0x80000218:  str      r1, [r0, #4]
-    0x8000021C:  ldr      r1, [pc, #0x38]
-    0x80000220:  str      r1, [r0, #8]
+    0x80100200:  push     {r4, r5, r6, r7, r8, sb, sl, fp, lr}
+    0x80100204:  ldr      r0, [pc, #0x48]
+    0x80100208:  ldr      r1, [pc, #0x48]
+    0x8010020C:  str      r1, [r0]
+    0x80100210:  ldr      r1, [pc, #0x44]
+    0x80100214:  str      r1, [r0, #4]
+    0x80100218:  ldr      r1, [pc, #0x40]
+    0x8010021C:  str      r1, [r0, #8]
     ...
-[+] Successfully built: tools/ram_payload/ram_payload.bin
-    Total Size:   612 bytes (512-byte DHTB header + 100 bytes code)
-    Entry Point:  0x80000200 in DRAM
+[+] Successfully built: tools/ram_payload/bin/baremetal_asm.bin
+    Total Size:   616 bytes (512-byte DHTB header + 104 bytes code)
+    Entry Point:  0x80100200 in DRAM
 ```
 
 ### Running on Hardware
@@ -116,9 +115,9 @@ When code executes under BootROM / FDL1:
 ### 4.2 How the "Hello World" Engine Works
 1. **DRAM Injection:** `spd_dump` injects `fdl1.bin` at `0x6200` and `hello_world.bin` at `0x80100000` with `end_data 0`.
 2. **Execution Handoff:** FDL1 branches to `0x80100200`. The payload transmits an immediate BSL ACK (`0x80`) over USB, satisfying `spd_dump`.
-3. **USB Serial & Display Server:** `run_hello_world.sh` seamlessly launches [`libc_server`](file:///Users/lovelytingy/Documents/Personal-Projects/Nokia-2660-RE/tools/ram_payload/libc_server).
+3. **USB Serial & Display Server:** `run_hello_world.sh` seamlessly launches [`libc_server`](file:///Users/lovelytingy/Documents/Personal-Projects/Nokia-2660-RE/tools/ram_payload/bin/libc_server).
 4. **Hardware Initialization:**
-   - Evaluates [`pinmap.bin`](file:///Users/lovelytingy/Documents/Personal-Projects/Nokia-2660-RE/tools/ram_payload/pinmap.bin) and [`keymap.bin`](file:///Users/lovelytingy/Documents/Personal-Projects/Nokia-2660-RE/tools/ram_payload/keymap.bin) (extracted directly from TA-1480 `kernel.bin`).
+   - Evaluates [`pinmap.bin`](file:///Users/lovelytingy/Documents/Personal-Projects/Nokia-2660-RE/tools/ram_payload/data/pinmap.bin) and [`keymap.bin`](file:///Users/lovelytingy/Documents/Personal-Projects/Nokia-2660-RE/tools/ram_payload/data/keymap.bin) (extracted directly from TA-1480 `kernel.bin`).
    - Powers on the SC2720 PMIC backlight via ADI bus (`--bl_extra w=0x2d`).
    - Configures the SPI interface and initializes the 240×320 GC9307 display (`--gpio_data 0x28,-0x5f`).
 5. **Vibrant On-Screen Rendering:**

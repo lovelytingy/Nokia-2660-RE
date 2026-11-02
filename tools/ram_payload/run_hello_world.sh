@@ -7,8 +7,11 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 SPD_DUMP="${REPO_ROOT}/tools/spd_dump"
 FDL1="${REPO_ROOT}/firmware/extracted/v23_update_Nokia_2660/fdl1.bin"
-PAYLOAD="${SCRIPT_DIR}/hello_world.bin"
-LIBC_SERVER="${SCRIPT_DIR}/libc_server"
+PAYLOAD="${SCRIPT_DIR}/bin/hello_world.bin"
+LIBC_SERVER="${SCRIPT_DIR}/bin/libc_server"
+DATA_DIR="${SCRIPT_DIR}/data"
+PINMAP="${DATA_DIR}/pinmap.bin"
+KEYMAP="${DATA_DIR}/keymap.bin"
 
 echo "================================================================="
 echo "  Nokia 2660 Flip (TA-1480) Bare-Metal 'Hello World' Display Test"
@@ -31,7 +34,7 @@ fi
 echo
 
 # Pre-flight checks
-for f in "${SPD_DUMP}" "${FDL1}" "${PAYLOAD}" "${LIBC_SERVER}" "${SCRIPT_DIR}/pinmap.bin" "${SCRIPT_DIR}/keymap.bin"; do
+for f in "${SPD_DUMP}" "${FDL1}" "${PAYLOAD}" "${LIBC_SERVER}" "${PINMAP}" "${KEYMAP}"; do
     if [[ ! -e "$f" ]]; then
         echo "[-] Error: Required file missing: $f" >&2
         exit 1
@@ -66,5 +69,5 @@ echo "[*] Stage 2: Handing off to libc_server for hardware display initializatio
 echo
 
 # Step 2: Switch to libc_server to drive SPI display, backlight, and heartbeat
-cd "${SCRIPT_DIR}"
+cd "${DATA_DIR}"
 exec "${LIBC_SERVER}" --wait 15 --verbose 0 -- "${DISP_ARGS[@]}" fptest display

@@ -86,16 +86,20 @@ def verify_disassembly(code_bytes: bytes, base_addr: int = 0x80100200) -> None:
 
 
 def main():
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    default_source = os.path.join(script_dir, "payload.S")
+    default_output = os.path.abspath(os.path.join(script_dir, "../../bin/baremetal_asm.bin"))
+
     parser = argparse.ArgumentParser(description="Build bare-metal RAM payload for Nokia 2660 Flip.")
     parser.add_argument(
         "--source",
-        default="tools/ram_payload/payload.S",
-        help="Path to assembly source (default: tools/ram_payload/payload.S)",
+        default=default_source,
+        help=f"Path to assembly source (default: {default_source})",
     )
     parser.add_argument(
         "--output",
-        default="tools/ram_payload/ram_payload.bin",
-        help="Path to output binary (default: tools/ram_payload/ram_payload.bin)",
+        default=default_output,
+        help=f"Path to output binary (default: {default_output})",
     )
     args = parser.parse_args()
 

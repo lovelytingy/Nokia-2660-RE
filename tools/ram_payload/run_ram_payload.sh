@@ -6,7 +6,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 SPD_DUMP="${REPO_ROOT}/tools/spd_dump"
 FDL1="${REPO_ROOT}/firmware/extracted/v23_update_Nokia_2660/fdl1.bin"
-PAYLOAD="${SCRIPT_DIR}/ram_payload.bin"
+PAYLOAD="${SCRIPT_DIR}/bin/baremetal_asm.bin"
 
 echo "=== Nokia 2660 Flip (TA-1480) Bare-Metal RAM Payload Loader ==="
 echo "SAFETY GUARANTEE: This script loads code STRICTLY into volatile DRAM."
@@ -24,8 +24,8 @@ if [[ ! -f "${FDL1}" ]]; then
 fi
 
 if [[ ! -f "${PAYLOAD}" ]]; then
-    echo "[*] Building ram_payload.bin first..."
-    python3 "${SCRIPT_DIR}/build_payload.py"
+    echo "[*] Building baremetal_asm.bin first..."
+    python3 "${SCRIPT_DIR}/src/baremetal_asm/build_payload.py"
 fi
 
 echo "[*] Starting spd_dump in listening mode (will wait up to 120s)..."
