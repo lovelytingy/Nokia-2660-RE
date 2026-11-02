@@ -1,6 +1,8 @@
 # Contributing
 
-Thanks for helping reverse-engineer the Nokia 2660 4G (TA-1480). More eyes make this much easier.
+Thanks for helping reverse-engineer the **Nokia 2660 Flip (TA-1480), India series**. More eyes make this much easier.
+
+Primary reference: software `10.02.17.00`, NDT `MH_13ARA80IN00_0`, HWID `HW3.0` — see [`docs/device.md`](docs/device.md).
 
 ## What we are trying to do
 

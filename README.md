@@ -1,28 +1,35 @@
 # Nokia-2660-RE
 
-Community reverse-engineering notes for the **Nokia 2660 4G (TA-1480)** — Unisoc T107 / **UMS9117** / MOCOR feature phone.
+Community reverse-engineering notes for the **Nokia 2660 Flip (TA-1480)** — India series — Unisoc T107 / **UMS9117** / MOCOR feature phone.
 
 **Goal:** understand boot + download modes, map firmware, and learn whether **custom firmware** is realistically possible. Contributions welcome — see [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Current reference device
 
+From dialer **`*#0000#`** on a real unit (India):
+
 | Field | Value |
 |-------|-------|
-| Model | TA-1480 |
-| Software | 10.02.17.00 |
-| Hardware | HW2.0 |
-| OS | `MOCOR_20A_MP_W22.04.5_P4_Release` |
-| Chipset | Unisoc T107 |
-| Platform | UMS9117 |
+| Name | Nokia 2660 Flip |
+| Type designator | TA-1480 |
+| Software version | 10.02.17.00 |
+| NDT code | `MH_13ARA80IN00_0` |
+| HWID | **HW3.0** |
+| Market | India-launched |
+| Chipset / platform | Unisoc T107 / UMS9117 |
 | USB (normal) | `1782:4D00` |
+
+Full device page: [docs/device.md](docs/device.md).
+
+**Note:** PAC / NV work here targets the **Indian** series (`MH_13ARA80IN00…`). Other countries may differ.
 
 ## Milestones
 
 - [x] Identify device / USB / chipset
-- [x] Obtain first MOCOR PAC sample (not yet confirmed TA-1480 match)
+- [x] Obtain MOCOR PAC sample (NV name matches Indian NDT `MH_13ARA80IN00`)
 - [x] Identify firmware format (`BP_R1.0.0` PAC)
 - [x] Draft boot/download chain (FDL1 → FDL2; boot0 → boot1) — [docs/Boot Process.md](docs/Boot%20Process.md)
-- [ ] Confirmed TA-1480 firmware dump
+- [ ] Version-matched TA-1480 dump / confirmed-safe flash package
 - [ ] Find application loader
 - [ ] Execute custom code safely
 
@@ -30,7 +37,7 @@ Community reverse-engineering notes for the **Nokia 2660 4G (TA-1480)** — Unis
 
 | Path | What belongs here |
 |------|-------------------|
-| [`docs/`](docs/) | Human findings (boot, flash, USB, hardware, …) |
+| [`docs/`](docs/) | Human findings (device, boot, flash, USB, hardware, …) |
 | [`firmware/`](firmware/) | PAC metadata + **extracted manifests** (binaries are gitignored) |
 | [`tools/`](tools/) | Scripts (`extract_pac.py`, …) |
 | [`ghidra/`](ghidra/) | How to import; local Ghidra DBs are gitignored |
@@ -51,10 +58,11 @@ python3 tools/extract_pac.py firmware/v23_update_Nokia_2660.pac
 
 Useful reading order:
 
-1. [firmware/readme.md](firmware/readme.md) — sample hashes + extract  
-2. [docs/firmware.md](docs/firmware.md) / [docs/Flash Layout.md](docs/Flash%20Layout.md)  
-3. [docs/Boot Process.md](docs/Boot%20Process.md) / [docs/bootrom.md](docs/bootrom.md)  
-4. [ghidra/readme.md](ghidra/readme.md) — load FDL/boot0 in Ghidra  
+1. [docs/device.md](docs/device.md) — reference phone (`*#0000#`)  
+2. [firmware/readme.md](firmware/readme.md) — sample hashes + extract  
+3. [docs/firmware.md](docs/firmware.md) / [docs/Flash Layout.md](docs/Flash%20Layout.md)  
+4. [docs/Boot Process.md](docs/Boot%20Process.md) / [docs/bootrom.md](docs/bootrom.md)  
+5. [ghidra/readme.md](ghidra/readme.md) — load FDL/boot0 in Ghidra  
 
 ## Tools (recommended)
 

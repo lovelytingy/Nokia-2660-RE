@@ -1,13 +1,22 @@
 # Hardware
 
-Status: **stub — help wanted**
+Status: **partial**
 
-## Known
+## Known (India reference unit)
 
-- Model: Nokia 2660 4G **TA-1480**
-- Chipset: **Unisoc T107** / platform **UMS9117**
-- Display class (from PAC MMI resources): **240×320**
-- Storage flash type in PAC scheme: **NAND**
+| Item | Value |
+|------|-------|
+| Marketing name | Nokia 2660 Flip |
+| Type designator | TA-1480 |
+| HWID (`*#0000#`) | **HW3.0** |
+| NDT code | `MH_13ARA80IN00_0` |
+| Market | India |
+| Chipset | Unisoc T107 |
+| Platform | UMS9117 |
+| Display class (PAC MMI) | 240×320 |
+| Flash (PAC scheme) | NAND |
+
+See [device.md](device.md) for the full `*#0000#` capture.
 
 ## Needed from contributors
 
@@ -15,4 +24,4 @@ Status: **stub — help wanted**
 - NAND / RAM package markings
 - UART / test-point map
 - Battery / charging IC notes
-- Confirmation of HW revision markings vs `HW2.0`
+- Photos confirming board silkscreen vs **HW3.0**

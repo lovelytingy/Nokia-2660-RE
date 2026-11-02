@@ -1,6 +1,6 @@
 # Flash layout (from PAC file table)
 
-Derived from `v23_update_Nokia_2660.pac` (`UMS9117` / NAND). Addresses below are download/load hints from the PAC `FILE_T` entries when present; physical NAND mapping still needs confirmation on-device.
+Derived from India-oriented `v23_update_Nokia_2660.pac` (`UMS9117` / NAND; NV token `MH_13ARA80IN00`). Addresses below are download/load hints from the PAC `FILE_T` entries when present; physical NAND mapping still needs confirmation on-device.
 
 ## Payloads extracted
 
