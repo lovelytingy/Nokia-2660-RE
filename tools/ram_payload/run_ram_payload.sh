@@ -48,8 +48,8 @@ echo "[+] Executing RAM injection via FDL1..."
     keep_charge 1 \
     fdl "${FDL1}" 0x6200 \
     blk_size 0x1000 \
-    fdl "${PAYLOAD}" ram
+    fdl "${PAYLOAD}" 0x80100000
 
 echo
-echo "[+] Done! Payload loaded and executed in DRAM at 0x80000000."
+echo "[+] Done! Payload loaded and executed in DRAM at 0x80100000."
 echo "    To return to normal OS mode, simply unplug USB and reinsert the battery."

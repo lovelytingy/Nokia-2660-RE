@@ -31,7 +31,7 @@ Full device page: [docs/device.md](docs/device.md).
 - [x] Draft boot/download chain (FDL1 → FDL2; boot0 → boot1) — [docs/Boot Process.md](docs/Boot%20Process.md)
 - [x] Version-matched TA-1480 dump (`10.02.17.00` / `MOCOR_...W22.04.6_P4_Release`) — [firmware/dumps/ta1480_10.02.17.00](firmware/dumps/ta1480_10.02.17.00)
 - [x] Find application loader (monolithic native C in `user.bin`; no dynamic J2ME/MRE loader) — [docs/Application Layer.md](docs/Application%20Layer.md)
-- [x] Execute custom code safely (RAM payload injection via FDL1; zero NAND risk) — [docs/Custom Code Execution.md](docs/Custom%20Code%20Execution.md)
+- [ ] Execute custom code safely
 
 ## Repo map
 

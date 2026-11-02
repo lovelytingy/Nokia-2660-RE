@@ -23,7 +23,7 @@ The Unisoc UMS9117 BootROM and first-stage download loader (`FDL1`) provide a di
 ```
 +-------------------------------------------------------------------------+
 | Host PC (macOS / Linux)                                                 |
-|   spd_dump keep_charge 1 fdl fdl1.bin 0x6200 fdl ram_payload.bin ram    |
+|   spd_dump keep_charge 1 fdl fdl1.bin 0x6200 fdl ram_payload.bin 0x80100000 |
 +------------------------------------+------------------------------------+
                                      | USB (VID:PID 1782:4D00)
                                      v

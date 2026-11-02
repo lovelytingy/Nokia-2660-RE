@@ -72,7 +72,7 @@ def create_dhtb_header(payload_len: int) -> bytes:
     return bytes(header)
 
 
-def verify_disassembly(code_bytes: bytes, base_addr: int = 0x80000200) -> None:
+def verify_disassembly(code_bytes: bytes, base_addr: int = 0x80100200) -> None:
     try:
         import capstone
 
@@ -106,7 +106,7 @@ def main():
     obj_file = "/tmp/ram_payload.o"
     assemble_arm(args.source, obj_file)
     code = extract_text_section(obj_file)
-    verify_disassembly(code, base_addr=0x80000200)
+    verify_disassembly(code, base_addr=0x80100200)
 
     header = create_dhtb_header(len(code))
     full_image = header + code
@@ -116,7 +116,7 @@ def main():
 
     print(f"[+] Successfully built: {args.output}")
     print(f"    Total Size:   {len(full_image)} bytes (512-byte DHTB header + {len(code)} bytes code)")
-    print(f"    Entry Point:  0x80000200 in DRAM")
+    print(f"    Entry Point:  0x80100200 in DRAM")
 
 
 if __name__ == "__main__":
