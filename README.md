@@ -31,7 +31,7 @@ Full device page: [docs/device.md](docs/device.md).
 - [x] Draft boot/download chain (FDL1 → FDL2; boot0 → boot1) — [docs/Boot Process.md](docs/Boot%20Process.md)
 - [x] Version-matched TA-1480 dump (`10.02.17.00` / `MOCOR_...W22.04.6_P4_Release`) — [firmware/dumps/ta1480_10.02.17.00](firmware/dumps/ta1480_10.02.17.00)
 - [x] Find application loader (monolithic native C in `user.bin`; no dynamic J2ME/MRE loader) — [docs/Application Layer.md](docs/Application%20Layer.md)
-- [ ] Execute custom code safely
+- [x] Execute custom code safely (RAM payload injection via FDL1; zero NAND risk) — [docs/Custom Code Execution.md](docs/Custom%20Code%20Execution.md)
 
 ## Repo map
 
@@ -64,7 +64,8 @@ Useful reading order:
 4. [docs/firmware.md](docs/firmware.md) / [docs/Flash Layout.md](docs/Flash%20Layout.md)  
 5. [docs/Boot Process.md](docs/Boot%20Process.md) / [docs/bootrom.md](docs/bootrom.md)  
 6. [docs/Application Layer.md](docs/Application%20Layer.md) — MOCOR application & window architecture  
-7. [ghidra/readme.md](ghidra/readme.md) — load FDL/boot0 in Ghidra  
+7. [docs/Custom Code Execution.md](docs/Custom%20Code%20Execution.md) — Bare-metal RAM payloads & homebrew execution  
+8. [ghidra/readme.md](ghidra/readme.md) — load FDL/boot0 in Ghidra  
 
 ## Tools (recommended)
 
