@@ -43,6 +43,7 @@ echo
     timeout 5000 \
     fdl "${FDL1}" 0x6200 \
     blk_size 0x1000 \
+    end_data 0 \
     fdl "${PAYLOAD}" 0x80100000
 
 echo

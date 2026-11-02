@@ -1,9 +1,10 @@
 /*
  * Bare-Metal RAM Payload for Nokia 2660 Flip (TA-1480 / Unisoc UMS9117)
  * 
- * Loaded into DRAM at 0x80000000 via FDL1 USB download mode.
- * Entry point is at offset +0x200 (0x80000200).
+ * Loaded into DRAM at 0x80100000 via FDL1 USB download mode.
+ * Entry point is at offset +0x200 (0x80100200).
  * 100% Non-destructive: runs strictly in volatile RAM without NAND writes.
+ * Returns cleanly to FDL1 so host receives BSL_REP_ACK (0x80).
  */
 
 .syntax unified
@@ -14,11 +15,8 @@
 .org 0x0000
 
 _start:
-    /* Disable interrupts (IRQ and FIQ) */
-    cpsid   if
-
-    /* Initialize stack pointer to a safe region in DDR */
-    ldr     sp, =0x80700000
+    /* Preserve callee-saved registers and return address to FDL1 */
+    push    {r4-r11, lr}
 
     /* Mailbox address for test status output in DRAM */
     ldr     r0, =0x80700100
@@ -35,7 +33,7 @@ _start:
     ldr     r1, =0xDEADBEEF
     str     r1, [r0, #0x08]
 
-    /* Counter test loop: increments counter in mailbox */
+    /* Counter test loop: executes 1,000,000 iterations */
     mov     r2, #0
     ldr     r3, =0x000FFFFF
 
@@ -45,11 +43,10 @@ count_loop:
     subs    r3, r3, #1
     bne     count_loop
 
-    /* Final Status: Execution Completed Success (0x00000001) */
+    /* Final Status: Execution Completed Successfully (0x00000001) */
     mov     r1, #1
     str     r1, [r0, #0x10]
 
-halt:
-    /* Low-power wait loop */
-    wfi
-    b       halt
+    /* Return cleanly to FDL1 dispatcher */
+    pop     {r4-r11, lr}
+    bx      lr
