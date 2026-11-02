@@ -31,7 +31,14 @@ Full device page: [docs/device.md](docs/device.md).
 - [x] Draft boot/download chain (FDL1 → FDL2; boot0 → boot1) — [docs/Boot Process.md](docs/Boot%20Process.md)
 - [x] Version-matched TA-1480 dump (`10.02.17.00` / `MOCOR_...W22.04.6_P4_Release`) — [firmware/dumps/ta1480_10.02.17.00](firmware/dumps/ta1480_10.02.17.00)
 - [x] Find application loader (monolithic native C in `user.bin`; no dynamic J2ME/MRE loader) — [docs/Application Layer.md](docs/Application%20Layer.md)
-- [ ] Execute custom code safely
+- [x] Execute custom code safely (volatile DRAM payload via FDL1; zero NAND flash writes) — [docs/Custom Code Execution.md](docs/Custom%20Code%20Execution.md)
+
+<div align="center">
+  <br>
+  <img src="docs/images/nokia_2660_hello_world.jpg" width="380" alt="Nokia 2660 Flip physical hardware running custom bare-metal Hello World payload">
+  <p><em>Physical hardware verification: Bare-metal "Hello World" payload executing in volatile DRAM on the Nokia 2660 Flip (TA-1480) 2.8" QVGA screen.</em></p>
+  <br>
+</div>
 
 ## Repo map
 

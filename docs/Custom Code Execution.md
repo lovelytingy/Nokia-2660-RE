@@ -138,7 +138,18 @@ When code executes under BootROM / FDL1:
      ```
 6. **Real-time Heartbeat:** Streams live frame counts and uptime to host console over USB at 60 FPS.
 
-### 4.3 Running the "Hello World" Display Test
+### 4.3 Physical Hardware Verification
+
+The payload was successfully deployed and verified on a physical retail Nokia 2660 Flip (TA-1480, India series, HW3.0, FW `10.02.17.00`):
+
+<div align="center">
+  <br>
+  <img src="images/nokia_2660_hello_world.jpg" width="400" alt="Nokia 2660 Flip running custom Hello World payload on bare-metal hardware">
+  <p><em>Real hardware execution: The custom bare-metal ARM payload rendering the Hello World GUI on the phone's 2.8" QVGA screen via volatile DRAM.</em></p>
+  <br>
+</div>
+
+### 4.4 Running the "Hello World" Display Test
 ```bash
 ./tools/ram_payload/run_hello_world.sh
 ```

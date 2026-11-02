@@ -4,6 +4,13 @@ This directory contains bare-metal code execution payloads, hardware drivers, an
 
 All payloads in this directory run **strictly in volatile DRAM** at `0x80100000`. NAND flash is never modified or erased, ensuring **zero risk of bricking**.
 
+<div align="center">
+  <br>
+  <img src="../../docs/images/nokia_2660_hello_world.jpg" width="380" alt="Nokia 2660 Flip physical hardware running custom bare-metal Hello World payload">
+  <p><em>Physical hardware verification: Custom "Hello World" payload executing in volatile DRAM on the Nokia 2660 Flip (TA-1480).</em></p>
+  <br>
+</div>
+
 ---
 
 ## Directory Structure

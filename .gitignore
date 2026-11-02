@@ -55,7 +55,6 @@ captures/**/*.pcapng
 captures/**/*.zip
 captures/**/*.7z
 captures/**/*.rar
-captures/photos/
 captures/logs/
 
 # Tool caches
