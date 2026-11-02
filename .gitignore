@@ -30,6 +30,10 @@ venv/
 *.nb0
 *.bin
 
+# Exception: allow small homebrew payloads and calibration data in tools/ram_payload
+!tools/ram_payload/*.bin
+!tools/ram_payload/data/*.bin
+
 # Keep small text/data artifacts under extracted/
 !firmware/extracted/**/
 !firmware/extracted/**/*.md

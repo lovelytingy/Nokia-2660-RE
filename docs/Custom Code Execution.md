@@ -103,7 +103,52 @@ Output:
 
 ---
 
-## 4. Community Projects: `fpdoom` & `sdboot_t117`
+## 4. Bare-Metal "Hello World" Display Payload (`tools/ram_payload/run_hello_world.sh`)
+
+To provide visible on-screen verification of custom code execution on the physical phone, we developed a dedicated **"Hello World"** graphical payload that combines our DRAM injection vector with `fpdoom`'s low-level hardware drivers:
+
+### 4.1 What Was Missing in Default BootROM Mode
+When code executes under BootROM / FDL1:
+1. The display hardware (GC9307 SPI LCD) is powered down in hardware sleep mode.
+2. The backlight LED current sink in the SC2720 PMIC is off (0V).
+3. Without active SPI controller initialization and PMIC ADI register programming, the screen remains black even while code executes.
+
+### 4.2 How the "Hello World" Engine Works
+1. **DRAM Injection:** `spd_dump` injects `fdl1.bin` at `0x6200` and `hello_world.bin` at `0x80100000` with `end_data 0`.
+2. **Execution Handoff:** FDL1 branches to `0x80100200`. The payload transmits an immediate BSL ACK (`0x80`) over USB, satisfying `spd_dump`.
+3. **USB Serial & Display Server:** `run_hello_world.sh` seamlessly launches [`libc_server`](file:///Users/lovelytingy/Documents/Personal-Projects/Nokia-2660-RE/tools/ram_payload/libc_server).
+4. **Hardware Initialization:**
+   - Evaluates [`pinmap.bin`](file:///Users/lovelytingy/Documents/Personal-Projects/Nokia-2660-RE/tools/ram_payload/pinmap.bin) and [`keymap.bin`](file:///Users/lovelytingy/Documents/Personal-Projects/Nokia-2660-RE/tools/ram_payload/keymap.bin) (extracted directly from TA-1480 `kernel.bin`).
+   - Powers on the SC2720 PMIC backlight via ADI bus (`--bl_extra w=0x2d`).
+   - Configures the SPI interface and initializes the 240×320 GC9307 display (`--gpio_data 0x28,-0x5f`).
+5. **Vibrant On-Screen Rendering:**
+   - Allocates an RGB565 framebuffer in DRAM.
+   - Renders a midnight blue GUI, glowing pulse card, and scaled 8x16 bitmap font displaying:
+     ```
+     ========================
+         NOKIA 2660 FLIP
+      TA-1480 | Unisoc T107
+     ------------------------
+          HELLO WORLD!
+     ------------------------
+       Code: Volatile DRAM
+       Base: 0x80100000
+       NAND: 100% Untouched
+       LCD:  GC9307 SPI 240x320
+     ========================
+     ```
+6. **Real-time Heartbeat:** Streams live frame counts and uptime to host console over USB at 60 FPS.
+
+### 4.3 Running the "Hello World" Display Test
+```bash
+./tools/ram_payload/run_hello_world.sh
+```
+* **Inner Main Screen (Default):** `./tools/ram_payload/run_hello_world.sh`
+* **Outer Cover Screen:** `./tools/ram_payload/run_hello_world.sh cover`
+
+---
+
+## 5. Community Projects: `fpdoom` & `sdboot_t117`
 
 The same RAM-injection and bootloader architecture powers high-performance community homebrew like **Doom** on the Nokia 2660 Flip:
 
