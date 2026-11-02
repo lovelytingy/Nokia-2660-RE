@@ -4,7 +4,7 @@
  * Loaded into DRAM at 0x80100000 via FDL1 USB download mode.
  * Entry point is at offset +0x200 (0x80100200).
  * 100% Non-destructive: runs strictly in volatile RAM without NAND writes.
- * Returns cleanly to FDL1 so host receives BSL_REP_ACK (0x80).
+ * Sends BSL_REP_ACK (0x80) back to host over USB and returns cleanly to FDL1.
  */
 
 .syntax unified
@@ -46,6 +46,11 @@ count_loop:
     /* Final Status: Execution Completed Successfully (0x00000001) */
     mov     r1, #1
     str     r1, [r0, #0x10]
+
+    /* Send BSL_REP_ACK (0x80) back to host via FDL1's send_ack at 0x00006c23 */
+    mov     r0, #0x80
+    ldr     r1, =0x00006c23
+    blx     r1
 
     /* Return cleanly to FDL1 dispatcher */
     pop     {r4-r11, lr}
