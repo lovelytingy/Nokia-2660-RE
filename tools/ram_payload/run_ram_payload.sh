@@ -28,24 +28,19 @@ if [[ ! -f "${PAYLOAD}" ]]; then
     python3 "${SCRIPT_DIR}/build_payload.py"
 fi
 
-echo "[*] Waiting for Nokia 2660 Flip in BootROM mode (1782:4D00)..."
+echo "[*] Starting spd_dump in listening mode (will wait up to 120s)..."
 echo "    INSTRUCTIONS:"
-echo "    1. Disconnect phone from USB and remove battery."
-echo "    2. Press and hold '*' key on keypad."
-echo "    3. Connect USB cable while holding '*'."
+echo "    1. Disconnect phone from USB and ensure battery is OUT."
+echo "    2. Press the red Power / End key 2-3 times while unplugged to fully drain residual charge."
+echo "    3. Press and firmly HOLD the '*' (Asterisk) key on the keypad."
+echo "    4. While holding '*', plug the USB cable into the phone and computer."
 echo
 
-while true; do
-    if ioreg -p IOUSB -l -w 0 | grep -q "1782"; then
-        echo "[+] Unisoc BootROM (1782:4D00) detected!"
-        break
-    fi
-    sleep 0.2
-done
-
-echo "[+] Executing RAM injection via FDL1..."
 "${SPD_DUMP}" \
+    --wait 120 \
+    --verbose 1 \
     keep_charge 1 \
+    timeout 5000 \
     fdl "${FDL1}" 0x6200 \
     blk_size 0x1000 \
     fdl "${PAYLOAD}" 0x80100000
