@@ -59,10 +59,11 @@ python3 tools/extract_pac.py firmware/v23_update_Nokia_2660.pac
 Useful reading order:
 
 1. [docs/device.md](docs/device.md) — reference phone (`*#0000#`)  
-2. [firmware/readme.md](firmware/readme.md) — sample hashes + extract  
-3. [docs/firmware.md](docs/firmware.md) / [docs/Flash Layout.md](docs/Flash%20Layout.md)  
-4. [docs/Boot Process.md](docs/Boot%20Process.md) / [docs/bootrom.md](docs/bootrom.md)  
-5. [ghidra/readme.md](ghidra/readme.md) — load FDL/boot0 in Ghidra  
+2. [docs/community_findings.md](docs/community_findings.md) — boot key, dialer codes & safe dump instructions  
+3. [firmware/readme.md](firmware/readme.md) — sample hashes + extract  
+4. [docs/firmware.md](docs/firmware.md) / [docs/Flash Layout.md](docs/Flash%20Layout.md)  
+5. [docs/Boot Process.md](docs/Boot%20Process.md) / [docs/bootrom.md](docs/bootrom.md)  
+6. [ghidra/readme.md](ghidra/readme.md) — load FDL/boot0 in Ghidra  
 
 ## Tools (recommended)
 
@@ -79,6 +80,20 @@ Useful reading order:
 brew install binwalk          # optional
 brew install --cask ghidra    # if not already installed
 ```
+
+## Host Environment & OS Compatibility
+
+> [!NOTE]
+> **Primary Host Environment: macOS**  
+> This project is actively developed and tested on **macOS** (Apple Silicon / Darwin).
+>
+> Please note if you are using another operating system:
+> - **Script & Command Differences:** Some shell snippets, USB polling scripts, and system utilities (such as `ioreg` or `system_profiler`) are macOS-specific and will need to be adapted for Linux (e.g. `lsusb`, `udev`) or Windows (PowerShell, Device Manager).
+> - **OS-Specific Tools & Drivers:**
+>   - **macOS:** Uses `libusb` (`brew install libusb pkg-config`). No kernel extensions needed for BootROM mode.
+>   - **Linux:** Requires `udev` rules for Spreadtrum/Unisoc vendor ID `1782` and building tools like `spreadtrum_flash` via native `make`.
+>   - **Windows:** Requires Spreadtrum USB / SCI / Jungo drivers (`SciU2S` driver package) and Windows builds of utilities (e.g. `spd_dump64.exe`, ResearchDownload, or SPD Upgrade Tool).
+> - **Contributions:** PRs adding or improving cross-platform compatibility for Linux and Windows are very welcome!
 
 ## Disclaimer
 

@@ -42,6 +42,16 @@ Firmware details and hashes: [`firmware/readme.md`](firmware/readme.md).
 | Firmware | String notes on `boot1`, kernel/user images; partition map confirmation |
 | Tools | Improve `tools/extract_pac.py`; add helpers for DHTB / strings / FDL |
 | Ghidra | Share symbol maps or annotated notes (not the whole project DB) |
+| Cross-Platform | Port macOS-specific shell snippets (`ioreg`) to Linux (`lsusb`/`udev`) or Windows |
+
+## Host OS & Cross-Platform Note
+
+The primary environment currently used for testing and development in this repository is **macOS** (Darwin / Apple Silicon). 
+
+Please keep in mind:
+- Some scripts, commands, and one-liners in `docs/` and `tools/` may use macOS utilities (like `ioreg` or `system_profiler`) or Homebrew paths.
+- Contributors on **Linux** or **Windows** will need tools and drivers tailored to their OS (e.g. Spreadtrum `SciU2S` drivers on Windows, `udev` rules and `libusb-1.0` on Linux).
+- Contributions that test, adapt, and document tools for Linux and Windows are highly encouraged!
 
 ## Repo layout
 
