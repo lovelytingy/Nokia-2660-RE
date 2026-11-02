@@ -104,6 +104,18 @@ brew install --cask ghidra    # if not already installed
 >   - **Windows:** Requires Spreadtrum USB / SCI / Jungo drivers (`SciU2S` driver package) and Windows builds of utilities (e.g. `spd_dump64.exe`, ResearchDownload, or SPD Upgrade Tool).
 > - **Contributions:** PRs adding or improving cross-platform compatibility for Linux and Windows are very welcome!
 
+## Acknowledgments & Credits
+
+This research, reverse engineering, and bare-metal hardware execution relies heavily on the work of the open-source feature phone and Unisoc/Spreadtrum research community:
+
+* **[Ilya Kurdyukov (ilyakurdyukov)](https://github.com/ilyakurdyukov)**:
+  - **[`spreadtrum_flash`](https://github.com/ilyakurdyukov/spreadtrum_flash)** (`spd_dump`): The foundational reverse-engineered download-mode protocol implementation for Spreadtrum/Unisoc SoCs, enabling BootROM handshakes, FDL loading, memory dumps, and DRAM injection. Also authored `fphelper_t117` for extracting pinmaps and keymaps from kernel dumps.
+  - **[`fpdoom`](https://github.com/ilyakurdyukov/fpdoom)**: Embedded port of Doom for feature phones, providing the bare-metal hardware drivers for the Nokia 2660 Flip's GC9307/GC9104 SPI LCD controllers, SC2720 PMIC backlight current sink registers, and the USB `libc_server` bridge.
+* **[id Software](https://www.idsoftware.com/)**: For open-sourcing the legendary [DOOM](https://github.com/id-Software/DOOM) engine and the shareware `doom1.wad`.
+* **[Capstone Disassembly Framework](https://www.capstone-engine.org/)** ([`capstone-engine/capstone`](https://github.com/capstone-engine/capstone)): Used for automated verification and disassembly of compiled ARMv7-A bare-metal payloads.
+* **[NSA Ghidra](https://ghidra-sre.org/)** ([`NationalSecurityAgency/ghidra`](https://github.com/NationalSecurityAgency/ghidra)): Instrumental for static analysis and decompilation of MOCOR RTOS binaries, bootloader stages (`boot0`/`boot1`), and kernel verification routines.
+* **The Spreadtrum / Unisoc Feature Phone Homebrew Community**: For documenting chip errata, boot keys, and flash structures across the SC6531 and UMS9117 series.
+
 ## Disclaimer
 
 **No warranty. No guarantee. We are not responsible if your device bricks.**

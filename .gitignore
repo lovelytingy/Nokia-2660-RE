@@ -72,3 +72,7 @@ firmware/dumps/**/*.bin
 !firmware/dumps/**/
 !firmware/dumps/**/*.md
 !firmware/dumps/**/*.csv
+
+
+# just for fun no attachment to this project
+fpdoom/

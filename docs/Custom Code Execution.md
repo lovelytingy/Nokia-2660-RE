@@ -185,3 +185,16 @@ The Nokia 2660 Flip has unique dual-screen hardware parameters identified by the
 For untethered execution without a computer:
 * A tiny secondary loader (`sdboot_t117`) is flashed into unused flash sectors.
 * When holding specific keypad keys at power-on, the hook intercepts the boot chain, mounts a FAT32 MicroSD card, and executes `fpbin/fpmain.bin` according to `fpbin/config.txt`.
+
+---
+
+## 6. Acknowledgments & Upstream Credits
+
+This project's bare-metal payload execution, display drivers, and USB flashing mechanisms build directly upon key community open-source repositories:
+
+* **[Ilya Kurdyukov (ilyakurdyukov)](https://github.com/ilyakurdyukov)**:
+  - **[`spreadtrum_flash`](https://github.com/ilyakurdyukov/spreadtrum_flash)** (`spd_dump`): Protocol implementation for communicating with Spreadtrum/Unisoc BootROM and FDL1 download mode, custom FDL loaders, and `fphelper_t117`.
+  - **[`fpdoom`](https://github.com/ilyakurdyukov/fpdoom)**: Bare-metal feature phone drivers for GC9307/GC9104 SPI LCD panels, SC2720 PMIC backlight control, and the host-client `libc_server` communication channel.
+* **[Capstone Engine](https://github.com/capstone-engine/capstone)**: ARMv7-A instruction disassembly and verification.
+* **[Ghidra](https://github.com/NationalSecurityAgency/ghidra)**: Reverse-engineering the MOCOR boot chain and signature bypass vectors.
+

@@ -91,3 +91,14 @@ Uses native system `clang` (no cross-compiler needed):
 ```bash
 python3 tools/ram_payload/src/baremetal_asm/build_payload.py
 ```
+
+---
+
+## Acknowledgments & Upstream Credits
+
+Special thanks to the open-source projects that made bare-metal code execution on this device possible:
+
+* **[`ilyakurdyukov/spreadtrum_flash`](https://github.com/ilyakurdyukov/spreadtrum_flash)**: Created `spd_dump` for communicating with the Unisoc BootROM/FDL protocol and `fphelper_t117` for extracting `pinmap.bin` / `keymap.bin`.
+* **[`ilyakurdyukov/fpdoom`](https://github.com/ilyakurdyukov/fpdoom)**: Created the low-level GC9307/GC9104 SPI LCD driver, SC2720 PMIC backlight control routines, and the USB `libc_server` bridge.
+* **[`capstone-engine/capstone`](https://github.com/capstone-engine/capstone)**: Used for ARM disassembly verification.
+
