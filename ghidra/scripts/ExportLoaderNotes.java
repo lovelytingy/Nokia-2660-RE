@@ -13,7 +13,7 @@ public class ExportLoaderNotes extends GhidraScript {
 	public void run() throws Exception {
 		String outDir = getScriptArgs().length > 0
 			? getScriptArgs()[0]
-			: "/Users/lovelytingy/Documents/Personal-Projects/Nokia-2660-RE/ghidra/exports";
+			: "ghidra/exports";
 		String path = outDir + "/" + currentProgram.getName() + "_notes.txt";
 		PrintWriter pw = new PrintWriter(new FileWriter(path));
 		pw.println("Program: " + currentProgram.getName());

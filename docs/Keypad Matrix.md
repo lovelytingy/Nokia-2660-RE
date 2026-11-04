@@ -191,7 +191,7 @@ Inside stock MOCOR OS (`kernel.bin`):
 
 ## 8. Bare-Metal Keypad Diagnostic Tool (`keypad_test`)
 
-The custom RAM payload toolkit (`tools/ram_payload/src/keypad_test/keypad_test_main.c`) includes a complete bare-metal polling and visual diagnostic driver launched via [`tools/ram_payload/run_keypad_test.sh`](file:///Users/lovelytingy/Documents/Personal-Projects/Nokia-2660-RE/tools/ram_payload/run_keypad_test.sh):
+The custom RAM payload toolkit (`tools/ram_payload/src/keypad_test/keypad_test_main.c`) includes a complete bare-metal polling and visual diagnostic driver launched via [`tools/ram_payload/run_keypad_test.sh`](/tools/ram_payload/run_keypad_test.sh):
 
 1. **Non-blocking Matrix Draining:** Calls `sys_event(&key)` in a loop each frame to drain all keypresses and releases from the hardware FIFO.
 2. **Dedicated EIC Polling:** Inspects `read_power_button()` each frame with isolated `((eic_read() >> 1) & 1) ^ 1` bitmask to capture standalone Power/End keypresses and combo chords (`PWR + <key>`) without Key 8 interference.

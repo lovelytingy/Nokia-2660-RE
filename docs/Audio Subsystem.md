@@ -3,8 +3,8 @@
 This document details the reverse-engineered hardware architecture, register maps, and bare-metal control methods for the **External Speaker Power Amplifier (PA)**, **SC2720 PMIC Line-Out Audio Codec**, and **Voice Band Codec (VBC)** on the **Nokia 2660 Flip (Model TA-1480, Unisoc UMS9117 / T107 SoC, SC2720 PMIC)**.
 
 > [!NOTE]
-> For the **Rear Flashlight / Torch LED** (`0x40608df4`), see [`docs/Flashlight.md`](file:///Users/lovelytingy/Documents/Personal-Projects/Nokia-2660-RE/docs/Flashlight.md).  
-> For the **Haptic Vibration Motor** (`0x40608e00`), see [`docs/Haptics.md`](file:///Users/lovelytingy/Documents/Personal-Projects/Nokia-2660-RE/docs/Haptics.md).
+> For the **Rear Flashlight / Torch LED** (`0x40608df4`), see [`docs/Flashlight.md`](/docs/Flashlight.md).  
+> For the **Haptic Vibration Motor** (`0x40608e00`), see [`docs/Haptics.md`](/docs/Haptics.md).
 
 ---
 
@@ -220,7 +220,7 @@ For full PCM/WAV playback beyond square-wave generation, the UMS9117 includes a 
 
 ## 5. Interactive Loudspeaker Diagnostic Payload (`audio_test.bin`)
 
-The standalone test tool [`tools/ram_payload/src/audio_test/`](file:///Users/lovelytingy/Documents/Personal-Projects/Nokia-2660-RE/tools/ram_payload/src/audio_test/) provides a complete, interactive hardware testbench that renders a real-time status dashboard on either screen while listening for keypad input.
+The standalone test tool [`tools/ram_payload/src/audio_test/`](/tools/ram_payload/src/audio_test/) provides a complete, interactive hardware testbench that renders a real-time status dashboard on either screen while listening for keypad input.
 
 ### Keypad Mapping Table
 

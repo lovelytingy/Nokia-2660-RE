@@ -3,8 +3,8 @@
 This document details the reverse-engineered hardware architecture, register maps, and bare-metal drivers for the **Rear Flashlight / Torch LED** on the **Nokia 2660 Flip (Model TA-1480, Unisoc UMS9117 / T107 SoC, SC2720 PMIC)**.
 
 > [!NOTE]
-> For the **Haptic Vibration Motor** (`0x40608e00`), see the dedicated reference [`docs/Haptics.md`](file:///Users/lovelytingy/Documents/Personal-Projects/Nokia-2660-RE/docs/Haptics.md).  
-> For the **External Speaker PA & Audio Codec**, see [`docs/Audio Subsystem.md`](file:///Users/lovelytingy/Documents/Personal-Projects/Nokia-2660-RE/docs/Audio%20Subsystem.md).
+> For the **Haptic Vibration Motor** (`0x40608e00`), see the dedicated reference [`docs/Haptics.md`](/docs/Haptics.md).  
+> For the **External Speaker PA & Audio Codec**, see [`docs/Audio Subsystem.md`](/docs/Audio%20Subsystem.md).
 
 ---
 
@@ -115,9 +115,9 @@ void flashlight_morse_sos(int level) {
 
 A dedicated diagnostic tool is provided in `tools/ram_payload/`:
 
-* Source: [`tools/ram_payload/src/flashlight_test/`](file:///Users/lovelytingy/Documents/Personal-Projects/Nokia-2660-RE/tools/ram_payload/src/flashlight_test/)
-* Binary: [`tools/ram_payload/bin/flashlight_test.bin`](file:///Users/lovelytingy/Documents/Personal-Projects/Nokia-2660-RE/tools/ram_payload/bin/flashlight_test.bin)
-* Runner Script: [`tools/ram_payload/run_flashlight_test.sh`](file:///Users/lovelytingy/Documents/Personal-Projects/Nokia-2660-RE/tools/ram_payload/run_flashlight_test.sh)
+* Source: [`tools/ram_payload/src/flashlight_test/`](/tools/ram_payload/src/flashlight_test/)
+* Binary: [`tools/ram_payload/bin/flashlight_test.bin`](/tools/ram_payload/bin/flashlight_test.bin)
+* Runner Script: [`tools/ram_payload/run_flashlight_test.sh`](/tools/ram_payload/run_flashlight_test.sh)
 
 ### Keypad Controls
 

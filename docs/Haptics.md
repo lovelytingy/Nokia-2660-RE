@@ -3,8 +3,8 @@
 This document details the reverse-engineered hardware architecture, register maps, power requirements, and bare-metal drivers for the **Eccentric Rotating Mass (ERM) Haptic Vibration Motor** on the **Nokia 2660 Flip (Model TA-1480, Unisoc UMS9117 / T107 SoC, SC2720 PMIC)**.
 
 > [!NOTE]
-> For the **Rear Flashlight / Torch LED** (`0x40608df4`), see [`docs/Flashlight.md`](file:///Users/lovelytingy/Documents/Personal-Projects/Nokia-2660-RE/docs/Flashlight.md).  
-> For the **External Speaker PA & Audio Codec**, see [`docs/Audio Subsystem.md`](file:///Users/lovelytingy/Documents/Personal-Projects/Nokia-2660-RE/docs/Audio%20Subsystem.md).
+> For the **Rear Flashlight / Torch LED** (`0x40608df4`), see [`docs/Flashlight.md`](/docs/Flashlight.md).  
+> For the **External Speaker PA & Audio Codec**, see [`docs/Audio Subsystem.md`](/docs/Audio%20Subsystem.md).
 
 ---
 
@@ -167,9 +167,9 @@ void haptics_morse_sos(int level) {
 
 A dedicated diagnostic tool is provided in `tools/ram_payload/`:
 
-* Source: [`tools/ram_payload/src/haptics_test/`](file:///Users/lovelytingy/Documents/Personal-Projects/Nokia-2660-RE/tools/ram_payload/src/haptics_test/)
-* Binary: [`tools/ram_payload/bin/haptics_test.bin`](file:///Users/lovelytingy/Documents/Personal-Projects/Nokia-2660-RE/tools/ram_payload/bin/haptics_test.bin)
-* Runner Script: [`tools/ram_payload/run_haptics_test.sh`](file:///Users/lovelytingy/Documents/Personal-Projects/Nokia-2660-RE/tools/ram_payload/run_haptics_test.sh)
+* Source: [`tools/ram_payload/src/haptics_test/`](/tools/ram_payload/src/haptics_test/)
+* Binary: [`tools/ram_payload/bin/haptics_test.bin`](/tools/ram_payload/bin/haptics_test.bin)
+* Runner Script: [`tools/ram_payload/run_haptics_test.sh`](/tools/ram_payload/run_haptics_test.sh)
 
 ### Keypad Controls
 
