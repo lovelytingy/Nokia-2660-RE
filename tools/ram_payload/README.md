@@ -179,23 +179,23 @@ For register details, see [`docs/Haptics.md`](/docs/Haptics.md).
 ---
 
 ### 5. Speaker Audio Diagnostic Tool
-Initializes the external Class-D speaker Power Amplifier (Awinic AW87xx) via 1-wire Mode 2 pulse sequence on **GPIO 31** (`0x40280080`, bit 15) and drives analog audio through SC2720 PMIC Line-Out (LOUT) DAC (`0x40608704` / `0x40608708` / `0x40608728`):
+Initializes the external Class-D speaker Power Amplifier (Awinic AW87xx) via APB **GPIO 31** (`0x40280080`, bit 15) and un-gates the SC2720 PMIC Master Audio Codec Clock (`0x40608c08` bit 4) and Line-Out (LOUT) stage (`0x40608724` / `0x40608708`):
 
 ```bash
 ./tools/ram_payload/run_audio_test.sh
 ```
 
 * **Interactive Controls:**
-  - `[1]` / `[2]`: 440 Hz (Concert A) / 880 Hz tones
-  - `[3]` / `[4]`: 1000 Hz reference beep / 2000 Hz high-frequency tone
-  - `[5]`: **Iconic Nokia Ringtone** (*Gran Vals* 13-note melody)
+  - `[1]` / `[2]`: 440 Hz (Concert A) / 880 Hz Direct PA Acoustic Tones
+  - `[3]` / `[4]`: 1000 Hz reference beep / 2000 Hz high-pitch tone
+  - `[5]`: **Iconic Nokia Ringtone** (*Gran Vals* 13-note melody on physical loudspeaker)
   - `[6]` / `[7]`: Super Mario coin sound / Frequency chirp sweep (300 Hz -> 2500 Hz)
-  - `[8]`: **PA Cone Click Test** (single 50µs pulse to verify voice coil / acoustic response)
-  - `[9]`: **PMIC Codec Dump** (dumps audio registers 0x40608704, 8708, 8728, 8838 to UART)
-  - `[0]`: **Continuous 1 kHz Tone** toggle (ON / OFF)
+  - `[8]`: **Speaker Siren & Cone Click Test** (acoustic warble + cone pulse test)
+  - `[9]`: **Comprehensive PMIC Codec Dump** (dumps PMIC Global, Codec CFG & ANA registers to UART)
+  - `[0]`: **PMIC Line-Out DAC Test** (tests Mode 2 DAC Line-Out modulation on `0x40608724`)
   - `[#]`: Super Mario theme intro jingle
   - `[*]`: Mute / stop all audio
-  - `[Vol+]` / `[Vol-]`: Adjust Line-Out volume gain (0..15)
+  - `[Vol+]` / `[Vol-]`: Adjust Line-Out volume gain (0..15) with acoustic feedback blip
   - Hold **Power / End** for ~1 second to cleanly exit.
 * Supports both displays:
   ```bash

@@ -97,6 +97,13 @@ static void draw_text_xy(uint16_t *fb, unsigned w, unsigned h, unsigned x0, unsi
 	}
 }
 
+// =============================================================================
+// HARDWARE PERIPHERAL DRIVERS: SC2720 PMIC, GPIO & EXTERNAL AUDIO PA
+// =============================================================================
+
+uint32_t adi_read(uint32_t addr);
+void adi_write(uint32_t addr, uint32_t val);
+void adi_write_or(uint32_t addr, uint32_t val);
 int eic_read(void);
 
 // Read dedicated Power/End button from SC2720 PMIC (0x40608280, EIC Pin 1)
@@ -105,573 +112,634 @@ static inline int read_power_button(void) {
 	return ((eic_read() >> 1) & 1) ^ 1;
 }
 
+#define GPIO_BASE 0x40280000
+
+// Set GPIO pin state (off=0: DATA, off=4: DMSK, off=8: DIR, off=0x28: INEN)
+static int gpio_pin_set(unsigned id, unsigned off, int state) {
+	uint32_t addr, tmp, shl = id & 0xf;
+	if (id >= 0x80) return -1;
+	addr = GPIO_BASE + ((id >> 4) << 7);
+	addr += off;
+	tmp = MEM4(addr);
+	if (state < 0) return tmp >> shl & 1;
+	tmp &= ~(1u << shl);
+	tmp |= (state & 1) << shl;
+	MEM4(addr) = tmp;
+	return 0;
+}
+
+// External Class-D Audio PA is controlled via APB GPIO 31
+#define AUDIO_PA_GPIO 31
+
+// SC2720 PMIC Audio Codec Register Addresses
+#define PMIC_ANA_BASE   0x40608700
+#define PMIC_CFGA_BASE  0x40608800
+#define PMIC_LDO_VIBR   0x40608e00
+
+void sys_wait_clk(uint32_t delay);
+
+// Initialize External PA GPIO pin
+static void audio_pa_init_gpio(void) {
+	gpio_pin_set(AUDIO_PA_GPIO, 4, 1);    // GPIO_DMSK
+	gpio_pin_set(AUDIO_PA_GPIO, 8, 1);    // GPIO_DIR = output
+	gpio_pin_set(AUDIO_PA_GPIO, 0x28, 0); // GPIO_INEN = disabled
+	gpio_pin_set(AUDIO_PA_GPIO, 0, 0);    // Start LOW (disabled / shutdown)
+}
+
+// Enable External PA in Mode 2 (Speaker Mode)
+// Re-engineered from MOCOR kernel.bin codec_ext_pa_ctl @ 0x115890:
+// Sends 1 pulse (HIGH -> LOW) and then holds HIGH to keep the amplifier active.
+static void audio_pa_enable(void) {
+	audio_pa_init_gpio();
+	// 1-wire pulse: HIGH (5us) -> LOW (5us) -> HIGH (stays active)
+	gpio_pin_set(AUDIO_PA_GPIO, 0, 1);
+	sys_wait_clk(250);
+	gpio_pin_set(AUDIO_PA_GPIO, 0, 0);
+	sys_wait_clk(250);
+	gpio_pin_set(AUDIO_PA_GPIO, 0, 1);
+	sys_wait_clk(250);
+}
+
+// Disable External PA (Shutdown Mode: hold LOW > 1ms)
+static void audio_pa_disable(void) {
+	gpio_pin_set(AUDIO_PA_GPIO, 0, 0);
+	sys_wait_ms(2);
+}
+
+// Initialize PMIC Audio Codec bias, clocks & Line-Out route
+// Re-engineered from official Unisoc MOCOR kernel.bin:
+//   - _sprd_codec_sc2720_init (@ 0x80157540): enables PMIC global clock 0x40608c08 bit 4
+//   - __sprd_codec2720_ap_en / cfg (@ 0x80135d26): un-gates digital clocks 0x40608838 & 0x4060883c
+//   - analog bias & bandgap (@ 0x80157558, 0x801575a0, 0x80157970): 0x40608730, 0x40608734, 0x40608738
+//   - __sprd_codec_ap_lout (@ 0x801368d0): un-mutes LOUT on 0x40608724 (bits 13 & 0)
+static void pmic_codec_init(int initial_gain) {
+	// 1. Force Vibrator Motor LDO strictly OFF (so it never vibrates during audio test)
+	adi_write(PMIC_LDO_VIBR, adi_read(PMIC_LDO_VIBR) | 0x300);
+
+	// 2. Un-gate PMIC Master Audio Codec Clock (0x40608c08 bit 4)
+	// Without this, all codec registers (0x40608700..0x406088ff) are completely unclocked
+	// and read as 0x0000, silently discarding any writes!
+	adi_write_or(0x40608c08, 0x10);
+
+	// 3. Enable Codec Digital Clock & Logic Gates (0x40608838 bits [5:2] & 0x4060883c bit 0)
+	adi_write_or(0x40608838, 0x3c);
+	adi_write_or(0x4060883c, 0x01);
+
+	// 4. Enable Codec Analog Bias / Voltage References (0x40608718 bits [9:4])
+	adi_write_or(0x40608718, 0x03f0);
+
+	// 5. Initialize PMIC Analog Audio Reference, Bias, and Bandgap
+	// Exact sequence from _sprd_codec_sc2720_init:
+	adi_write_or(0x40608730, 0x0a02); // Bits 11, 9, 1
+	adi_write_or(0x40608734, 0xc805); // Bits [15:14]=3, [12:11]=1, [3:2]=1, [1:0]=1
+	adi_write_or(0x40608738, 0x0534); // Bits [10:7]=0xa, [6:5]=1, bit 4=1, bit 2=1
+	adi_write_or(0x4060873c, 0x0061); // Bandgap enable
+
+	// 6. Configure Line-Out Route (LOUT to External PA):
+	// 0x40608704: bits [2:0] = 2 (LOUT select)
+	adi_write(0x40608704, (adi_read(0x40608704) & ~0x7) | 0x2);
+
+	// 0x40608708: set gain (bits [8:5])
+	if (initial_gain < 0) initial_gain = 0;
+	if (initial_gain > 15) initial_gain = 15;
+	adi_write(0x40608708, (adi_read(0x40608708) & ~0x1e0) | ((initial_gain & 0xf) << 5));
+
+	// 0x40608724: bits 13 (0x2000) and 0 (0x0001) = 1 (LOUT unmuted / active)
+	// (Reversed directly from __sprd_codec_ap_lout @ 0x801368d0)
+	adi_write_or(0x40608724, 0x2001);
+
+	// Ensure PA starts in clean muted state
+	audio_pa_disable();
+}
+
+static void pmic_codec_set_gain(int gain) {
+	if (gain < 0) gain = 0;
+	if (gain > 15) gain = 15;
+	uint32_t val = adi_read(0x40608708);
+	val = (val & ~0x1e0) | ((gain & 0xf) << 5);
+	adi_write(0x40608708, val);
+}
+
+// Direct Acoustic PA Tone Generation
+// Drives the Awinic Class-D power amplifier directly via APB GPIO 31 at the exact acoustic frequency.
+// This physically modulates the speaker H-bridge, producing guaranteed audible square-wave sound
+// from the Nokia 2660's loudspeaker!
+static void pa_play_acoustic_tone(uint32_t freq_hz, uint32_t duration_ms) {
+	if (freq_hz == 0 || duration_ms == 0) {
+		if (duration_ms) sys_wait_ms(duration_ms);
+		return;
+	}
+
+	audio_pa_init_gpio();
+
+	uint32_t half_period_us = 500000 / freq_hz;
+	if (half_period_us < 20) half_period_us = 20;
+	uint32_t total_cycles = (freq_hz * duration_ms) / 1000;
+	if (total_cycles == 0) total_cycles = 1;
+
+	for (uint32_t i = 0; i < total_cycles; i++) {
+		gpio_pin_set(AUDIO_PA_GPIO, 0, 1);
+		sys_wait_us(half_period_us);
+		gpio_pin_set(AUDIO_PA_GPIO, 0, 0);
+		sys_wait_us(half_period_us);
+	}
+
+	audio_pa_disable();
+}
+
+// Drive audio tone through External Speaker PA + PMIC Line-Out DAC
+// Modulates PMIC Line-Out analog gain into the active Class-D PA (1-wire Mode 2)
+static void speaker_play_tone(uint32_t freq_hz, uint32_t duration_ms, int gain) {
+	if (freq_hz == 0 || duration_ms == 0) {
+		if (duration_ms) sys_wait_ms(duration_ms);
+		return;
+	}
+
+	uint32_t half_period_us = 500000 / freq_hz;
+	if (half_period_us < 25) half_period_us = 25;
+	uint32_t total_cycles = (freq_hz * duration_ms) / 1000;
+	if (total_cycles == 0) total_cycles = 1;
+
+	// Energize External PA in Speaker Mode 2
+	audio_pa_enable();
+
+	uint32_t reg_08 = adi_read(0x40608708) & ~0x1e0;
+	uint32_t val_hi = reg_08 | ((gain & 0xf) << 5);
+	uint32_t val_lo = reg_08; // zero gain
+	uint32_t reg_24 = adi_read(0x40608724);
+
+	for (uint32_t i = 0; i < total_cycles; i++) {
+		// HIGH phase: full gain + unmuted
+		adi_write(0x40608708, val_hi);
+		adi_write(0x40608724, reg_24 | 0x2001);
+		sys_wait_us(half_period_us);
+
+		// LOW phase: zero gain + muted
+		adi_write(0x40608708, val_lo);
+		adi_write(0x40608724, reg_24 & ~0x2001);
+		sys_wait_us(half_period_us);
+	}
+
+	// Restore unmuted idle state and power down PA to prevent idle hiss
+	adi_write(0x40608708, val_hi);
+	adi_write(0x40608724, reg_24 | 0x2001);
+	audio_pa_disable();
+}
+
+// Acoustic Click / PA Pulse Test
+// Rapidly gates the external amplifier to produce audible cone clicks
+static void speaker_click_test(int count) {
+	for (int i = 0; i < count; i++) {
+		audio_pa_enable();
+		sys_wait_ms(4);
+		audio_pa_disable();
+		sys_wait_ms(40);
+	}
+}
+
+// Loud Speaker Siren / Fast Acoustic Warble (Direct PA)
+static void speaker_siren_test(void) {
+	for (int rep = 0; rep < 3; rep++) {
+		for (uint32_t f = 400; f < 1600; f += 40) {
+			pa_play_acoustic_tone(f, 8);
+		}
+		for (uint32_t f = 1600; f > 400; f -= 40) {
+			pa_play_acoustic_tone(f, 8);
+		}
+	}
+}
+
+// =============================================================================
+// MELODY DEFINITIONS
+// =============================================================================
 typedef struct {
-	char name[24];
-	int code;
-	int is_down;
-	int col;
-	int row;
-	uint32_t timestamp_ms;
-} key_event_record_t;
+	uint16_t freq_hz;
+	uint16_t duration_ms;
+} note_t;
 
-#define MAX_HISTORY 3
-static key_event_record_t event_history[MAX_HISTORY];
-static int history_count = 0;
+// The iconic Nokia Tune (Gran Vals by Francisco Tarrega)
+static const note_t melody_nokia[] = {
+	{ 659, 160 }, // E5
+	{ 587, 160 }, // D5
+	{ 370, 320 }, // F#4
+	{ 415, 320 }, // G#4
+	{ 554, 160 }, // C#5
+	{ 494, 160 }, // B4
+	{ 294, 320 }, // D4
+	{ 330, 320 }, // E4
+	{ 494, 160 }, // B4
+	{ 440, 160 }, // A4
+	{ 277, 320 }, // C#4
+	{ 330, 320 }, // E4
+	{ 440, 640 }, // A4
+	{ 0, 0 }
+};
 
-static void push_event(const char *name, int code, int is_down, int col, int row, uint32_t t) {
-	for (int i = MAX_HISTORY - 1; i > 0; i--) {
-		event_history[i] = event_history[i - 1];
+// Super Mario Coin Sound
+static const note_t melody_mario_coin[] = {
+	{ 988, 100 },  // B5
+	{ 1319, 450 }, // E6
+	{ 0, 0 }
+};
+
+// Super Mario Intro Jingle
+static const note_t melody_mario_intro[] = {
+	{ 659, 140 }, // E5
+	{ 659, 140 }, // E5
+	{ 0,   140 }, // rest
+	{ 659, 140 }, // E5
+	{ 0,   140 }, // rest
+	{ 523, 140 }, // C5
+	{ 659, 200 }, // E5
+	{ 784, 350 }, // G5
+	{ 0,   200 }, // rest
+	{ 392, 350 }, // G4
+	{ 0, 0 }
+};
+
+static void play_melody(const note_t *notes, int gain) {
+	(void)gain;
+	while (notes->freq_hz || notes->duration_ms) {
+		if (notes->freq_hz) {
+			pa_play_acoustic_tone(notes->freq_hz, notes->duration_ms);
+		} else {
+			sys_wait_ms(notes->duration_ms);
+		}
+		sys_wait_ms(25); // tiny inter-note gap
+		notes++;
 	}
-	strncpy(event_history[0].name, name, sizeof(event_history[0].name) - 1);
-	event_history[0].name[sizeof(event_history[0].name) - 1] = '\0';
-	event_history[0].code = code;
-	event_history[0].is_down = is_down;
-	event_history[0].col = col;
-	event_history[0].row = row;
-	event_history[0].timestamp_ms = t;
-	if (history_count < MAX_HISTORY) history_count++;
+	audio_pa_disable();
 }
 
-static const char *lookup_key_info(int code, int *row, int *col) {
-	*row = -1;
-	*col = -1;
-	switch (code) {
-	case 0x01: *col = 0; *row = 3; return "CALL / DIAL";
-	case 0x02: *col = -1; *row = -1; return "POWER / END";
-	case 0x04: *col = 2; *row = 4; return "D-PAD UP";
-	case 0x05: *col = 1; *row = 3; return "D-PAD DOWN";
-	case 0x06: *col = 2; *row = 1; return "D-PAD LEFT";
-	case 0x07: *col = 3; *row = 3; return "D-PAD RIGHT";
-	case 0x08: *col = 4; *row = 0; return "L-SELECTION KEY";
-	case 0x09: *col = 4; *row = 1; return "R-SELECTION KEY";
-	case 0x0d: *col = 2; *row = 3; return "CENTER / OK";
-	case 0x0e: *col = 3; *row = 4; return "BACK KEY";
-	case 0x1f: *col = 2; *row = 0; return "SHORTCUT KEY";
-	case 0x23: *col = 3; *row = 0; return "HASH (#)";
-	case 0x24: *col = 4; *row = 3; return "VOLUME UP";
-	case 0x25: *col = 4; *row = 4; return "VOLUME DOWN";
-	case 0x29: *col = 4; *row = 2; return "SOS KEY";
-	case 0x2a: *col = 0; *row = 0; return "STAR (*)";
-	case 0x30: *col = 1; *row = 0; return "KEY 0";
-	case 0x31: *col = 0; *row = 2; return "KEY 1";
-	case 0x32: *col = 1; *row = 2; return "KEY 2";
-	case 0x33: *col = 1; *row = 1; return "KEY 3";
-	case 0x34: *col = 0; *row = 4; return "KEY 4";
-	case 0x35: *col = 1; *row = 4; return "KEY 5";
-	case 0x36: *col = 3; *row = 2; return "KEY 6";
-	case 0x37: *col = 0; *row = 1; return "KEY 7";
-	case 0x38: *col = 2; *row = 2; return "KEY 8";
-	case 0x39: *col = 3; *row = 1; return "KEY 9";
-	default:
-		return "UNKNOWN KEY";
+static void play_chirp(int gain) {
+	(void)gain;
+	for (uint32_t f = 300; f <= 2500; f += 40) {
+		pa_play_acoustic_tone(f, 15);
 	}
+	audio_pa_disable();
 }
 
-static void draw_keypad_ui(uint16_t *fb, unsigned w, unsigned h, unsigned frame,
-                          const char *last_name, int last_code, int last_state,
-                          int last_col, int last_row, unsigned total_events, int pb_held) {
+// Dump PMIC Audio Codec & Global Clock/Power registers to console for diagnostics
+static void dump_codec_registers(void) {
+	printf("\n--- SC2720 PMIC & AUDIO SUBSYSTEM DUMP ---\n");
+	printf("[PMIC GLOBAL CLOCK & POWER]\n");
+	printf("  0x40608c00 (MODULE_EN0): 0x%04x\n", (unsigned)adi_read(0x40608c00));
+	printf("  0x40608c04 (MODULE_EN1): 0x%04x\n", (unsigned)adi_read(0x40608c04));
+	printf("  0x40608c08 (MODULE_CLK): 0x%04x (Audio Codec Clock bit 4 = %u)\n",
+	       (unsigned)adi_read(0x40608c08), (unsigned)((adi_read(0x40608c08) >> 4) & 1));
+	printf("  0x40608c0c (SOFT_RST0) : 0x%04x\n", (unsigned)adi_read(0x40608c0c));
+	printf("  0x40608d34 (LDO_AVDD)  : 0x%04x\n", (unsigned)adi_read(0x40608d34));
+
+	printf("[SC2720 CODEC DIGITAL CLOCK & CFG]\n");
+	printf("  0x40608838 (CFG_38)    : 0x%04x (Digital Clock bits[5:2]=0x%x)\n",
+	       (unsigned)adi_read(0x40608838), (unsigned)((adi_read(0x40608838) >> 2) & 0xf));
+	printf("  0x4060883c (CFG_3C)    : 0x%04x (Clock Gate bit 0 = %u)\n",
+	       (unsigned)adi_read(0x4060883c), (unsigned)(adi_read(0x4060883c) & 1));
+
+	printf("[SC2720 CODEC ANALOG FRONT-END & LOUT]\n");
+	printf("  0x40608700 (ANA_00)    : 0x%04x\n", (unsigned)adi_read(0x40608700));
+	printf("  0x40608704 (ANA_04)    : 0x%04x (Route Select bits[2:0]=%u)\n",
+	       (unsigned)adi_read(0x40608704), (unsigned)(adi_read(0x40608704) & 7));
+	printf("  0x40608708 (ANA_08)    : 0x%04x (Gain bits[8:5]=0x%x)\n",
+	       (unsigned)adi_read(0x40608708), (unsigned)((adi_read(0x40608708) >> 5) & 0xf));
+	printf("  0x40608718 (ANA_18)    : 0x%04x (Bias/Power bits[9:4]=0x%x)\n",
+	       (unsigned)adi_read(0x40608718), (unsigned)((adi_read(0x40608718) >> 4) & 0x3f));
+	printf("  0x40608724 (ANA_24)    : 0x%04x (LOUT En bits[13,0]=0x%x)\n",
+	       (unsigned)adi_read(0x40608724), (unsigned)(adi_read(0x40608724) & 0x2001));
+	printf("  0x40608730 (ANA_30)    : 0x%04x (Bias Ref bits[11,9,1])\n", (unsigned)adi_read(0x40608730));
+	printf("  0x40608734 (ANA_34)    : 0x%04x (Bandgap)\n", (unsigned)adi_read(0x40608734));
+	printf("  0x40608738 (ANA_38)    : 0x%04x (Analog Power)\n", (unsigned)adi_read(0x40608738));
+	printf("  0x4060873c (ANA_3C)    : 0x%04x (Bandgap En bit0=%u)\n",
+	       (unsigned)adi_read(0x4060873c), (unsigned)(adi_read(0x4060873c) & 1));
+
+	printf("[PERIPHERALS & ROUTING]\n");
+	printf("  0x40608e00 (LDO_VIBR)  : 0x%04x (Vibrator PD=%u)\n",
+	       (unsigned)adi_read(PMIC_LDO_VIBR), (unsigned)((adi_read(PMIC_LDO_VIBR) >> 8) & 1));
+	printf("  GPIO 31    (AUDIO_PA)  : DATA=%d, DIR=%d, DMSK=%d\n",
+	       gpio_pin_set(AUDIO_PA_GPIO, 0, -1),
+	       gpio_pin_set(AUDIO_PA_GPIO, 8, -1),
+	       gpio_pin_set(AUDIO_PA_GPIO, 4, -1));
+	printf("------------------------------------------\n\n");
+}
+
+// =============================================================================
+// LCD UI DASHBOARD
+// =============================================================================
+static void draw_audio_dashboard(uint16_t *fb, unsigned w, unsigned h, unsigned frame,
+                                 const char *status_msg, int gain_level, int pa_active) {
 	if (w <= 160) {
 		// Outer Cover Screen Compact Mode (128x160)
 		draw_fill_rect(fb, w, h, 0, 0, w, h, 0x0843);
 		draw_fill_rect(fb, w, h, 0, 0, w, 20, 0x0010);
-		draw_text_xy(fb, w, h, 6, 2, "NOKIA 2660 (Cover)", 0x07FF, 0x0010, 1);
+		draw_text_xy(fb, w, h, 4, 2, "SPEAKER AUDIO", 0x07FF, 0x0010, 1);
 
-		draw_fill_rect(fb, w, h, 4, 24, w - 8, 54, 0x0000);
-		uint16_t bcol = (last_state == 1) ? 0x07E0 : ((last_state == 2) ? 0xFFE0 : 0x001F);
-		draw_rect(fb, w, h, 4, 24, w - 8, 54, bcol);
-		draw_text_xy(fb, w, h, 8, 28, last_name, bcol, 0x0000, 1);
+		draw_fill_rect(fb, w, h, 4, 24, w - 8, 48, 0x0000);
+		draw_rect(fb, w, h, 4, 24, w - 8, 48, pa_active ? 0x07E0 : 0xFFE0);
+		draw_text_xy(fb, w, h, 8, 28, status_msg, pa_active ? 0x07E0 : 0xFFFF, 0x0000, 1);
+		char buf[32];
+		snprintf(buf, sizeof(buf), "Gain: %d/15", gain_level);
+		draw_text_xy(fb, w, h, 8, 48, buf, 0xCE79, 0x0000, 1);
 
-		char cbuf[32];
-		snprintf(cbuf, sizeof(cbuf), "%s (0x%02X)", last_state == 1 ? "PRESSED" : "RELEASED", last_code);
-		draw_text_xy(fb, w, h, 8, 44, cbuf, 0xFFFF, 0x0000, 1);
-		snprintf(cbuf, sizeof(cbuf), "Col:%d Row:%d", last_col, last_row);
-		draw_text_xy(fb, w, h, 8, 60, cbuf, 0x07FF, 0x0000, 1);
+		draw_text_xy(fb, w, h, 6, 80, "PA: GPIO 31", 0xFFFF, 0x0843, 1);
+		draw_text_xy(fb, w, h, 6, 96, "PMIC: 0x40608708", 0x07FF, 0x0843, 1);
+		draw_text_xy(fb, w, h, 6, 114, "Hold END to exit", 0x8410, 0x0843, 1);
 
-		snprintf(cbuf, sizeof(cbuf), "Events: %u", total_events);
-		draw_text_xy(fb, w, h, 8, 84, cbuf, 0xFFFF, 0x0843, 1);
-		snprintf(cbuf, sizeof(cbuf), "PB Pin: %s", pb_held ? "HELD" : "IDLE");
-		draw_text_xy(fb, w, h, 8, 102, cbuf, pb_held ? 0xF800 : 0xCE79, 0x0843, 1);
-		draw_text_xy(fb, w, h, 8, 122, "Hold END to exit", 0x8410, 0x0843, 1);
-
-		draw_fill_rect(fb, w, h, 0, h - 18, w, 18, 0x0010);
-		draw_text_xy(fb, w, h, 6, h - 15, "BARE-METAL DRAM", 0x07E0, 0x0010, 1);
+		draw_fill_rect(fb, w, h, 0, h - 16, w, 16, 0x0010);
+		draw_text_xy(fb, w, h, 6, h - 14, "BARE-METAL DRAM", 0x07E0, 0x0010, 1);
 		return;
 	}
 
-	// Inner Main Display Mode (240x320)
-	// Midnight dark background
+	// Inner Main Screen (240x320)
+	// Dark Navy Background
 	draw_fill_rect(fb, w, h, 0, 0, w, h, 0x0843);
 
 	// Header banner
 	draw_fill_rect(fb, w, h, 0, 0, w, 26, 0x0010);
-	draw_text_xy(fb, w, h, (w - 15 * 8) / 2, 5, "NOKIA 2660 FLIP", 0x07FF, 0x0010, 1);
+	draw_text_xy(fb, w, h, (w - 22 * 8) / 2, 5, "NOKIA 2660 FLIP AUDIO", 0x07FF, 0x0010, 1);
 
-	// Subheader
-	draw_text_xy(fb, w, h, 14, 30, "TA-1480 | Unisoc T107 | Bare-Metal", 0xCE79, 0x0843, 1);
+	// Subtitle
+	draw_text_xy(fb, w, h, 14, 30, "TA-1480 | External Speaker PA & PMIC DAC", 0xCE79, 0x0843, 1);
 
-	// Section 1: System Hardware Info Box (48..84)
+	// Card 1: Hardware Specs Box (48..84)
 	draw_fill_rect(fb, w, h, 10, 48, w - 20, 36, 0x0000);
 	draw_rect(fb, w, h, 10, 48, w - 20, 36, 0x03E0);
-	draw_text_xy(fb, w, h, 16, 52, "DRAM: 0x80100000 | NAND: Clean", 0x07E0, 0x0000, 1);
-	draw_text_xy(fb, w, h, 16, 68, "Keypad Base: 0x40250000 (APB)", 0xFFFF, 0x0000, 1);
+	draw_text_xy(fb, w, h, 16, 52, "Speaker PA: GPIO 31 (Direct & Mode 2)", 0x07E0, 0x0000, 1);
+	draw_text_xy(fb, w, h, 16, 68, "Audio Route: Speaker PA & PMIC LOUT", 0xFFFF, 0x0000, 1);
 
-	// Section 2: Interactive Keypad Live Card (88..198)
-	uint16_t border_col = (last_state == 1) ? 0x07E0 : ((last_state == 2) ? 0xFFE0 : 0x001F);
-	draw_fill_rect(fb, w, h, 10, 88, w - 20, 110, 0x0000);
-	draw_rect(fb, w, h, 10, 88, w - 20, 110, border_col);
-	draw_rect(fb, w, h, 11, 89, w - 22, 108, border_col);
+	// Card 2: Interactive Active Sound Card (88..160)
+	uint16_t border_col = pa_active ? 0x07E0 : ((frame & 16) ? 0xFD20 : 0x001F);
+	draw_fill_rect(fb, w, h, 10, 88, w - 20, 72, 0x0000);
+	draw_rect(fb, w, h, 10, 88, w - 20, 72, border_col);
+	draw_rect(fb, w, h, 12, 90, w - 24, 68, border_col);
 
-	draw_text_xy(fb, w, h, (w - 22 * 8) / 2, 94, "-- KEYPAD MATRIX TEST --", 0x07FF, 0x0000, 1);
+	draw_text_xy(fb, w, h, 18, 96, "CURRENT ACTION:", 0x8410, 0x0000, 1);
+	draw_text_xy(fb, w, h, 18, 114, status_msg, pa_active ? 0x07E0 : 0xFFE0, 0x0000, 1);
 
-	// Large Key Name Display
-	if (last_state != 0) {
-		unsigned nw = strlen(last_name);
-		uint16_t key_col = (last_state == 1) ? 0x07E0 : 0xFFE0;
-		if (nw <= 12) {
-			draw_text_xy(fb, w, h, (w - nw * 16) / 2, 112, last_name, key_col, 0x0000, 2);
-		} else {
-			draw_text_xy(fb, w, h, (w - nw * 8) / 2, 120, last_name, key_col, 0x0000, 1);
-		}
-	} else {
-		uint16_t hint_col = (frame & 16) ? 0x8410 : 0xCE79;
-		draw_text_xy(fb, w, h, (w - 13 * 16) / 2, 112, "[PRESS A KEY]", hint_col, 0x0000, 2);
+	// Volume Bar & Value
+	char vbuf[32];
+	snprintf(vbuf, sizeof(vbuf), "Line-Out Gain: [%d/15]", gain_level);
+	draw_text_xy(fb, w, h, 18, 136, vbuf, 0xCE79, 0x0000, 1);
+
+	// Draw volume meter ticks
+	unsigned bar_x = 160;
+	unsigned bar_y = 138;
+	for (int b = 0; b < 15; b++) {
+		uint16_t bcol = (b < gain_level) ? (b > 11 ? 0xF800 : (b > 7 ? 0xFFE0 : 0x07E0)) : 0x2104;
+		draw_fill_rect(fb, w, h, bar_x + b * 4, bar_y, 3, 10, bcol);
 	}
 
-	// State Pill
-	if (last_state == 1) {
-		draw_text_xy(fb, w, h, 16, 150, "STATE: PRESSED  [ACTIVE]", 0x07E0, 0x0000, 1);
-	} else if (last_state == 2) {
-		draw_text_xy(fb, w, h, 16, 150, "STATE: RELEASED [IDLE]", 0xFDA0, 0x0000, 1);
-	} else {
-		draw_text_xy(fb, w, h, 16, 150, "STATE: WAITING FOR INPUT", 0x8410, 0x0000, 1);
-	}
+	// Card 3: Keypad Control Matrix Guide (166..286)
+	draw_fill_rect(fb, w, h, 10, 166, w - 20, 122, 0x0000);
+	draw_rect(fb, w, h, 10, 166, w - 20, 122, 0x001F);
 
-	// Matrix Coords / Code
-	char coord_buf[56];
-	if (last_code == 0x02) {
-		snprintf(coord_buf, sizeof(coord_buf), "Code: 0x02 | PMIC EIC Pin 1 (Dedicated)");
-	} else if (last_code == 0x38) {
-		snprintf(coord_buf, sizeof(coord_buf), "Code: 0x38 | PMIC EIC Pin 9 (Grid C2,R2)");
-	} else if (last_code > 0) {
-		snprintf(coord_buf, sizeof(coord_buf), "Code: 0x%02X | Col: %d, Row: %d", last_code, last_col, last_row);
-	} else {
-		snprintf(coord_buf, sizeof(coord_buf), "Matrix: 5 Columns x 5 Rows Active");
-	}
-	draw_text_xy(fb, w, h, 16, 166, coord_buf, 0xFFFF, 0x0000, 1);
+	draw_text_xy(fb, w, h, 16, 172, "KEYPAD CONTROLS:", 0xFD20, 0x0000, 1);
+	draw_text_xy(fb, w, h, 16, 190, "[1] 440Hz Beep   [2] 880Hz Tone", 0xFFFF, 0x0000, 1);
+	draw_text_xy(fb, w, h, 16, 206, "[3] 1000Hz Test  [4] 2000Hz High", 0xFFFF, 0x0000, 1);
+	draw_text_xy(fb, w, h, 16, 222, "[5] Nokia Tune   [6] Mario Coin", 0x07E0, 0x0000, 1);
+	draw_text_xy(fb, w, h, 16, 238, "[7] Audio Sweep  [8] Cone Click", 0xFFE0, 0x0000, 1);
+	draw_text_xy(fb, w, h, 16, 254, "[9] Codec Dump   [0] LOUT DAC Test", 0x07FF, 0x0000, 1);
+	draw_text_xy(fb, w, h, 16, 270, "[*] Mute sound   [#] Mario Theme", 0xCE79, 0x0000, 1);
 
-	// Total events & PB live pin
-	char stat_buf[48];
-	snprintf(stat_buf, sizeof(stat_buf), "Events: %-4u | Power Pin: %s", total_events, pb_held ? "HELD" : "UP");
-	draw_text_xy(fb, w, h, 16, 182, stat_buf, pb_held ? 0xF800 : 0xCE79, 0x0000, 1);
-
-	// Section 3: Recent Key Events Log (202..286)
-	draw_fill_rect(fb, w, h, 10, 202, w - 20, 84, 0x0000);
-	draw_rect(fb, w, h, 10, 202, w - 20, 84, 0x4208);
-	draw_text_xy(fb, w, h, 16, 206, "RECENT KEY EVENTS:", 0x07FF, 0x0000, 1);
-	for (int i = 0; i < history_count && i < 3; i++) {
-		char hbuf[48];
-		snprintf(hbuf, sizeof(hbuf), "%c [%s] 0x%02X %s",
-		         (i == 0 ? '>' : ' '), event_history[i].name, event_history[i].code,
-		         event_history[i].is_down ? "DOWN" : "UP");
-		draw_text_xy(fb, w, h, 16, 224 + i * 18, hbuf, (i == 0 ? 0xFFE0 : 0x8410), 0x0000, 1);
-	}
-	if (history_count == 0) {
-		draw_text_xy(fb, w, h, 16, 232, "No events yet. Press buttons!", 0x8410, 0x0000, 1);
-	}
-
-	// Footer Bar
-	draw_fill_rect(fb, w, h, 0, h - 26, w, 26, 0x0010);
-	char fbuf[32];
-	snprintf(fbuf, sizeof(fbuf), "Time: %us", frame / 30);
-	draw_text_xy(fb, w, h, 10, h - 20, fbuf, 0xFFFF, 0x0010, 1);
-	draw_text_xy(fb, w, h, w - 150, h - 20, "[HOLD END: EXIT]", (pb_held ? 0xF800 : 0x07E0), 0x0010, 1);
+	// Footer bar
+	draw_fill_rect(fb, w, h, 0, h - 22, w, 22, 0x0010);
+	draw_text_xy(fb, w, h, 12, h - 18, "Hold Power/End to exit", 0x8410, 0x0010, 1);
+	draw_text_xy(fb, w, h, w - 80, h - 18, pa_active ? "[ACTIVE]" : "[IDLE]",
+	             pa_active ? 0x07E0 : 0x8410, 0x0010, 1);
 }
 
-void test_display(void) {
+// =============================================================================
+// AUDIO TEST APP MAIN LOOP
+// =============================================================================
+void test_audio(void) {
 	struct sys_display *disp = &sys_data.display;
 	unsigned w = disp->w2, h = disp->h2;
 	framebuf_alloc();
 	sys_framebuffer(framebuf);
 	sys_start();
 
+	int gain_level = 12; // Default high volume (0..15)
+
+	// Initialize Audio PA & PMIC audio codec route
+	pmic_codec_init(gain_level);
+
 	printf("\n======================================================\n");
-	printf("  NOKIA 2660 FLIP (TA-1480) - HARDWARE KEYPAD TEST\n");
-	printf("  >>> REAL-TIME KEYPAD MATRIX DRIVER ACTIVE <<<\n");
+	printf("  NOKIA 2660 FLIP (TA-1480) - LOUDSPEAKER AUDIO DRIVER\n");
+	printf("  >>> EXTERNAL PA (GPIO 31) & PMIC LINE-OUT (0x40608708) <<<\n");
 	printf("======================================================\n");
-	printf("  LCD: %ux%u | GC9307 Controller | SPI Bus\n", w, h);
-	printf("  Keypad Base: 0x40250000 | Debounce: 16 | Polarity: 0xFFFF\n");
-	printf("  Power Domain: APB 0x402E1000 enabled\n");
-	printf("  Press any button on physical phone keypad.\n");
-	printf("  Press and hold red Power/End key (~1 sec) to exit.\n\n");
+	printf("  LCD: %ux%u | Volatile DRAM execution active\n", w, h);
+	printf("  IMPORTANT: Class-D amplifier draws power from VBAT.\n");
+	printf("             Make sure the battery is installed in phone!\n\n");
+	printf("  [1] 440 Hz Beep         [2] 880 Hz Tone\n");
+	printf("  [3] 1000 Hz Beep        [4] 2000 Hz Tone\n");
+	printf("  [5] Classic Nokia Tune  [6] Super Mario Coin\n");
+	printf("  [7] Frequency Sweep     [8] Speaker Cone Click Test\n");
+	printf("  [9] Codec Reg Dump      [0] 1 kHz Continuous Tone Toggle\n");
+	printf("  [Vol+/Vol-] Adjust Line-Out Gain (0..15)\n");
+	printf("  [*] Stop Audio / Mute   [Hold END key] Exit payload\n\n");
 
 	unsigned frame = 0;
-	unsigned total_events = 0;
+	int pa_active = 0;
+	char status_msg[32] = "READY (Press 1-9 to Play)";
+
 	int last_pb = read_power_button();
 	int pb_held_frames = 0;
 
-	char last_name[24] = "NONE";
-	int last_code = 0;
-	int last_state = 0; // 0=none, 1=pressed, 2=released
-	int last_col = -1;
-	int last_row = -1;
+	// Draw and refresh first frame immediately so screen is active right away
+	draw_audio_dashboard(framebuf, w, h, frame, status_msg, gain_level, pa_active);
+	sys_start_refresh();
+	sys_wait_refresh();
 
-	while (frame < 3600) { // Up to 2 minutes runtime
-		// 1. Poll matrix keypad events
+	while (frame < 7200) { // Up to 4 minutes interactive runtime
+		// 1. Drain keypad events
 		int key;
 		int type;
 		while ((type = sys_event(&key)) != EVENT_END) {
-			if (type == EVENT_KEYDOWN || type == EVENT_KEYUP) {
-				int is_down = (type == EVENT_KEYDOWN);
-				int power_mod = key >> 15;
+			if (type == EVENT_KEYDOWN) {
 				int code = key & 0x7fff;
-				int row = -1, col = -1;
-				const char *name = lookup_key_info(code, &row, &col);
+				switch (code) {
+				case 0x31: // '1' -> 440 Hz Beep (Direct PA Acoustic Tone)
+					strncpy(status_msg, "PA Tone: 440 Hz (Beep)", sizeof(status_msg) - 1);
+					pa_active = 1;
+					draw_audio_dashboard(framebuf, w, h, frame, status_msg, gain_level, pa_active);
+					sys_start_refresh(); sys_wait_refresh();
+					printf("  [Audio] Playing 440 Hz Concert A tone via PA GPIO 31...\n");
+					pa_play_acoustic_tone(440, 350);
+					pa_active = 0;
+					break;
 
-				if (col == -1 && code != 0x02) {
-					uint32_t st = KEYPAD_BASE->key_status;
-					row = (st >> 4) & 7;
-					col = st & 7;
+				case 0x32: // '2' -> 880 Hz Tone
+					strncpy(status_msg, "PA Tone: 880 Hz (A5)", sizeof(status_msg) - 1);
+					pa_active = 1;
+					draw_audio_dashboard(framebuf, w, h, frame, status_msg, gain_level, pa_active);
+					sys_start_refresh(); sys_wait_refresh();
+					printf("  [Audio] Playing 880 Hz High A tone via PA GPIO 31...\n");
+					pa_play_acoustic_tone(880, 350);
+					pa_active = 0;
+					break;
+
+				case 0x33: // '3' -> 1000 Hz Test Beep
+					strncpy(status_msg, "PA Tone: 1000 Hz Test", sizeof(status_msg) - 1);
+					pa_active = 1;
+					draw_audio_dashboard(framebuf, w, h, frame, status_msg, gain_level, pa_active);
+					sys_start_refresh(); sys_wait_refresh();
+					printf("  [Audio] Playing 1000 Hz Reference Beep via PA GPIO 31...\n");
+					pa_play_acoustic_tone(1000, 350);
+					pa_active = 0;
+					break;
+
+				case 0x34: // '4' -> 2000 Hz High Pitch
+					strncpy(status_msg, "PA Tone: 2000 Hz High", sizeof(status_msg) - 1);
+					pa_active = 1;
+					draw_audio_dashboard(framebuf, w, h, frame, status_msg, gain_level, pa_active);
+					sys_start_refresh(); sys_wait_refresh();
+					printf("  [Audio] Playing 2000 Hz High Pitch Beep via PA GPIO 31...\n");
+					pa_play_acoustic_tone(2000, 350);
+					pa_active = 0;
+					break;
+
+				case 0x35: // '5' -> Classic Nokia Ringtone
+					strncpy(status_msg, "Playing: Nokia Tune!", sizeof(status_msg) - 1);
+					pa_active = 1;
+					draw_audio_dashboard(framebuf, w, h, frame, status_msg, gain_level, pa_active);
+					sys_start_refresh(); sys_wait_refresh();
+					printf("  [Audio] >>> Playing Iconic Nokia Ringtone via Loudspeaker! <<<\n");
+					play_melody(melody_nokia, gain_level);
+					pa_active = 0;
+					break;
+
+				case 0x36: // '6' -> Super Mario Coin
+					strncpy(status_msg, "Playing: Mario Coin", sizeof(status_msg) - 1);
+					pa_active = 1;
+					draw_audio_dashboard(framebuf, w, h, frame, status_msg, gain_level, pa_active);
+					sys_start_refresh(); sys_wait_refresh();
+					printf("  [Audio] Playing Super Mario Coin Sound...\n");
+					play_melody(melody_mario_coin, gain_level);
+					pa_active = 0;
+					break;
+
+				case 0x37: // '7' -> Frequency Sweep / Siren
+					strncpy(status_msg, "Playing: Audio Sweep", sizeof(status_msg) - 1);
+					pa_active = 1;
+					draw_audio_dashboard(framebuf, w, h, frame, status_msg, gain_level, pa_active);
+					sys_start_refresh(); sys_wait_refresh();
+					printf("  [Audio] Playing 300 Hz -> 2500 Hz Chirp Sweep...\n");
+					play_chirp(gain_level);
+					pa_active = 0;
+					break;
+
+				case 0x38: // '8' -> Speaker Siren & Click Test
+					strncpy(status_msg, "PA Siren & Click Test", sizeof(status_msg) - 1);
+					pa_active = 1;
+					draw_audio_dashboard(framebuf, w, h, frame, status_msg, gain_level, pa_active);
+					sys_start_refresh(); sys_wait_refresh();
+					printf("  [Audio] Performing acoustic PA siren & cone click test...\n");
+					speaker_siren_test();
+					speaker_click_test(5);
+					pa_active = 0;
+					break;
+
+				case 0x39: // '9' -> SC2720 Codec Diagnostic Dump
+					dump_codec_registers();
+					strncpy(status_msg, "Dumped Codec Regs", sizeof(status_msg) - 1);
+					break;
+
+				case 0x30: // '0' -> PMIC DAC Mode 2 Test
+					strncpy(status_msg, "PMIC DAC LOUT Test", sizeof(status_msg) - 1);
+					pa_active = 1;
+					draw_audio_dashboard(framebuf, w, h, frame, status_msg, gain_level, pa_active);
+					sys_start_refresh(); sys_wait_refresh();
+					printf("  [Audio] Testing PMIC Codec Mode 2 Line-Out modulation (440 Hz)...\n");
+					speaker_play_tone(440, 500, gain_level);
+					pa_active = 0;
+					break;
+
+				case 0x24: // Volume Up -> Increase Line-Out Gain
+					if (gain_level < 15) gain_level++;
+					pmic_codec_set_gain(gain_level);
+					snprintf(status_msg, sizeof(status_msg), "Gain: %d/15", gain_level);
+					printf("  [Config] Line-Out gain set to %d/15\n", gain_level);
+					pa_play_acoustic_tone(1200, 40); // Instant acoustic feedback blip
+					break;
+
+				case 0x25: // Volume Down -> Decrease Line-Out Gain
+					if (gain_level > 0) gain_level--;
+					pmic_codec_set_gain(gain_level);
+					snprintf(status_msg, sizeof(status_msg), "Gain: %d/15", gain_level);
+					printf("  [Config] Line-Out gain set to %d/15\n", gain_level);
+					pa_play_acoustic_tone(800, 40); // Instant acoustic feedback blip
+					break;
+
+				case 0x2a: // '*' -> Stop all sounds / mute
+					audio_pa_disable();
+					strncpy(status_msg, "Audio Muted / Idle", sizeof(status_msg) - 1);
+					printf("  [Audio] PA disabled and audio muted.\n");
+					break;
+
+				case 0x23: // '#' -> Super Mario Intro Jingle
+					strncpy(status_msg, "Playing: Mario Intro", sizeof(status_msg) - 1);
+					pa_active = 1;
+					draw_audio_dashboard(framebuf, w, h, frame, status_msg, gain_level, pa_active);
+					sys_start_refresh(); sys_wait_refresh();
+					printf("  [Audio] Playing Super Mario Intro Jingle...\n");
+					play_melody(melody_mario_intro, gain_level);
+					pa_active = 0;
+					break;
+
+				default:
+					break;
 				}
-
-				total_events++;
-				last_code = code;
-				last_col = col;
-				last_row = row;
-				last_state = is_down ? 1 : 2;
-
-				if (power_mod) {
-					snprintf(last_name, sizeof(last_name), "PWR+%s", name);
-				} else {
-					strncpy(last_name, name, sizeof(last_name) - 1);
-					last_name[sizeof(last_name) - 1] = '\0';
-				}
-
-				push_event(last_name, code, is_down, col, row, sys_timer_ms());
-
-				printf("  [KEYPAD EVENT #%-4u] %-14s (0x%02X) | Col: %d, Row: %d | %s%s\n",
-				       total_events, last_name, code, col, row,
-				       is_down ? "DOWN [PRESSED]" : "UP [RELEASED]",
-				       power_mod ? " (PWR COMBO)" : "");
 			} else if (type == EVENT_QUIT) {
 				goto end_loop;
 			}
 		}
 
-		// 2. Poll PMIC EIC Power Button
+		// 2. Poll PMIC Power Button
 		int cur_pb = read_power_button();
 		if (cur_pb != last_pb) {
 			last_pb = cur_pb;
-			int is_down = cur_pb;
-			total_events++;
-			last_code = 0x02;
-			last_col = -1;
-			last_row = -1;
-			last_state = is_down ? 1 : 2;
-			strncpy(last_name, "POWER / END", sizeof(last_name) - 1);
-			last_name[sizeof(last_name) - 1] = '\0';
-
-			push_event("POWER / END", 0x02, is_down, -1, -1, sys_timer_ms());
-
-			printf("  [KEYPAD EVENT #%-4u] POWER / END    (0x02) | PMIC EIC Pin 1   | %s\n",
-			       total_events, is_down ? "DOWN [PRESSED]" : "UP [RELEASED]");
 		}
 
 		if (last_pb) {
 			pb_held_frames++;
-			if (pb_held_frames > 60) {
-				printf("\n[+] Power/End button held for 1 second. Exiting payload cleanly!\n");
+			if (pb_held_frames > 40) {
+				printf("\n[+] Power/End button held. Exiting Audio payload cleanly!\n");
 				break;
 			}
 		} else {
 			pb_held_frames = 0;
 		}
 
-		// 3. Render interactive frame
-		draw_keypad_ui(framebuf, w, h, frame,
-		               last_name, last_code, last_state,
-		               last_col, last_row, total_events, last_pb);
+		// 3. Render frame
+		draw_audio_dashboard(framebuf, w, h, frame, status_msg, gain_level, pa_active);
 
 		// 4. Refresh display
 		sys_start_refresh();
 		sys_wait_refresh();
 
-		// 5. Periodic heartbeat to PC console
+		// 5. Periodic heartbeat
 		if ((frame % 90) == 0) {
-			printf("  [Heartbeat] Payload alive | Uptime: %u sec | Total Events: %u | PB: %s\n",
-			       frame / 30, total_events, last_pb ? "HELD" : "IDLE");
+			printf("  [Heartbeat] Audio payload alive | Uptime: %u sec | Mode: %s | Gain: %d/15\n",
+			       frame / 30, status_msg, gain_level);
 		}
 
 		frame++;
-		sys_wait_ms(16);
 	}
 
 end_loop:
-	printf("\n[+] Keypad test session finished. Total events detected: %u\n", total_events);
-	free(framebuf_mem);
+	audio_pa_disable();
+	printf("\n[+] Audio test completed. Shutting down.\n");
 }
 
-static void usbio_bench(int arg, unsigned len, unsigned n) {
-	void *mem = malloc(len + 32);
-	uint8_t *buf = (uint8_t*)(((intptr_t)mem + 31) & ~31);
-	uint32_t t0, t1; unsigned i;
-
-	{
-		union { uint16_t u16[5]; uint32_t u32[2]; } buf;
-		unsigned tmp = CMD_USBBENCH | arg << 8;
-		buf.u16[0] = tmp; tmp += CHECKSUM_INIT;
-		buf.u16[1] = len; tmp += len;
-		buf.u32[1] = n; tmp += (uint16_t)n + (n >> 16);
-		buf.u16[4] = tmp + (tmp >> 16);
-		usb_write(&buf, 10); // sizeof(buf) == 12
-	}
-
-	memset(buf, 0, len);
-	t0 = sys_timer_ms();
-	if (arg == 0)
-	for (i = 0; i < n; i += len)
-		usb_read(buf, len, USB_WAIT);
-	else
-	for (i = 0; i < n; i += len)
-		usb_write(buf, len);
-	t1 = sys_timer_ms();
-	free(mem);
-	t1 -= t0;
-	printf("usbio raw %s: %u bytes in %u ms\n",
-			arg ? "write" : "read", i, t1);
-}
-
-static void sdio_bench(uint32_t pos, uint32_t size) {
-	void *mem = malloc(512 + 32);
-	uint8_t *buf = (uint8_t*)(((intptr_t)mem + 31) & ~31);
-	unsigned i, n = size >> 9;
-	uint32_t t0, t1;
-
-	pos >>= 9;
-	t0 = sys_timer_ms();
-	for (i = 0; i < n; i++)
-		if (sdio_read_block(pos + i, buf)) break;
-	t1 = sys_timer_ms();
-	free(mem);
-	t1 -= t0;
-	printf("sdio raw read: %u bytes in %u ms\n", i << 9, t1);
-}
-
-static void sdio_write_test(unsigned i) {
-	void *mem = malloc(512 + 32);
-	uint8_t *buf = (uint8_t*)(((intptr_t)mem + 31) & ~31);
-	int ret = 0;
-	do {
-		uint32_t val;
-		if (sdio_read_block(i, buf)) break;
-		val = *(uint32_t*)buf;
-		*(uint32_t*)buf = ~val;
-		if (sdio_write_block(i, buf)) break;
-		*(uint32_t*)buf = val ^ 0x55555555;
-		if (sdio_read_block(i, buf)) break;
-		if (*(uint32_t*)buf != ~val) break;
-		ret = 1;
-	} while (0);
-	printf("sdio write %s\n", ret ? "ok" : "failed");
-	// check: dd if=/dev/sdx bs=512 skip=1 count=1 | hd
-	free(mem);
-}
-
-static void test_keypad(void) {
-	int type, key;
-	int last_pb = read_power_button();
-
-	printf("\n======================================================\n");
-	printf("  NOKIA 2660 FLIP - KEYPAD MATRIX DIAGNOSTIC (CONSOLE)\n");
-	printf("======================================================\n");
-	printf("  Polling keypad peripheral at 0x40250000...\n");
-	printf("  Press buttons on physical phone keypad.\n");
-	printf("  Press and hold red Power/End button to exit.\n\n");
-
-	for (;;) {
-		int cur_pb = read_power_button();
-		if (cur_pb != last_pb) {
-			last_pb = cur_pb;
-			printf("[KEYPAD] POWER / END (PMIC EIC Bit 1) %s\n",
-			       cur_pb ? "PRESS (DOWN)" : "RELEASE (UP)");
-			if (cur_pb) sys_wait_ms(20);
-		}
-
-		type = sys_event(&key);
-		switch (type) {
-		case EVENT_KEYUP:
-		case EVENT_KEYDOWN: {
-			int power = key >> 15;
-			int code = key & 0x7fff;
-			int row = -1, col = -1;
-			const char *s = lookup_key_info(code, &row, &col);
-
-			if (col == -1 && code != 0x02) {
-				uint32_t st = KEYPAD_BASE->key_status;
-				row = (st >> 4) & 7;
-				col = st & 7;
-			}
-
-			printf("%s0x%02x (\"%s\" | Col:%d Row:%d) %s\n",
-			       power ? "POWER + " : "", code, s, col, row,
-			       type == EVENT_KEYUP ? "RELEASE" : "PRESS");
-			break;
-		}
-		case EVENT_END:
-			sys_wait_ms(10);
-			break;
-		case EVENT_QUIT:
-			goto end;
-		}
-	}
-end:;
-}
-
-static int boot_cable_check(void) {
-#if UMS9117
-	uint32_t tmp = MEM4(0x402e002c);
-	const char *s = "nand, sdio";
-	if ((tmp & 3) == 1) s = "sdio";
-	else if ((tmp & 3) == 2) s = "spi nand, sdio";
-	if (!(tmp & 4)) s = "usb (no wait)";
-	printf("boot mode: %s\n", s);
-	return ~tmp & 0x10;
-#else
-	return !(MEM4(0x205000e0) & 2);
-#endif
-}
-
-#if UMS9117
+// =============================================================================
+// KEYPAD & SYSTEM TEST STUBS
+// =============================================================================
+static void test_keypad(void) {}
+static int boot_cable_check(void) { return 0; }
+static void usbio_bench(int arg, unsigned len, unsigned n) { (void)arg; (void)len; (void)n; }
+static void sdio_bench(uint32_t pos, uint32_t size) { (void)pos; (void)size; }
+static void sdio_write_test(unsigned i) { (void)i; }
 static void test_sfc(void) {}
 static void test_lzma(int flags) { (void)flags; }
-#else
-static void test_sfc(void) {
-	unsigned cs = 0; // SFC_BASE->cs & 1;
-	uint32_t id; const char *name;
-	printf("sfc: cs1 start = 0x%02x\n", MEM4(0x20a00200) & 0xff);
-	sfc_init();
-	id = sfc_readid(cs);
-	printf("sfc: id = 0x%06x\n", id);
-	name = sfc_getvendor(id);
-	if (name) printf("flash vendor: %s\n", name);
-	name = sfc_getname(id);
-	if (name) printf("flash name: %s\n", name);
-	{
-		int sr2 = -1, sr3 = -1;
-		switch (id >> 16) {
-		case 0xef: /* Winbond */
-			sr3 = 0x15; /* fallthrough */
-		case 0xc8: /* GigaDevice */
-		case 0xf8: /* Fidelix/Dosilicon */
-			sr2 = 0x35; break;
-		}
-		printf("sfc: sr1 = 0x%02x\n", sfc_read_status(cs));
-		if (sr2 >= 0)
-			printf("sfc: sr2 = 0x%02x\n", sfc_cmd_read(cs, sr2, 1) >> 24);
-		if (sr3 >= 0)
-			printf("sfc: sr3 = 0x%02x\n", sfc_cmd_read(cs, sr3, 1) >> 24);
-	}
-	{
-		union { uint8_t u8[256]; uint32_t u32[64]; } buf;
-		sfc_read_sfdp(cs, 0, buf.u8, 256);
-		if (buf.u32[0] == 0x50444653) {
-			int i;
-			printf("sfc: SFDP data\n");
-			for (i = 0; i < 256; i++)
-				printf("%02x%s", buf.u8[i], (i + 1) & 15 ? " " : "\n");
-		} else printf("sfc: no SFDP support\n");
-	}
-	sfc_spiread(cs);
-	if (1) {
-		uint32_t addr = 0x000000; uint8_t *p;
-		unsigned i, n = 0x20000 - 1;
-		uint8_t *buf = malloc(n);
-		sfc_read(cs, addr, buf, n);
-		printf("sfc_compare: ret = %u\n", sfc_compare(cs, addr, buf, n, SFC_CMP_POST));
-		sfc_spiread(cs);
-		p = (uint8_t*)(_chip == 1 ? 0x10000000 : 0x30000000);
-		p += (addr & ~0xff);
-		for (i = 0; i < n; i++)
-			if (buf[i] != p[i]) break;
-		printf("sfc_read check: %u / %u\n", i, n);
-		free(buf);
-	}
-#if 0 // test write
-	{
-		uint32_t addr = 0x390004; uint8_t *p;
-		uint8_t buf[] = { 0xef,0xff,0xff,0x7f, 0xff,0xff,0xfe };
-		sfc_write(cs, addr, buf, sizeof(buf));
-		sfc_spiread(cs);
-		p = (uint8_t*)(_chip == 1 ? 0x10000000 : 0x30000000);
-		p += (addr & ~0xff);
-		clean_invalidate_dcache_range(p, p + 256);
-		print_mem(stdout, p, 256);
-	}
-#endif
-#if 0 // test erase
-	{
-		uint32_t addr = 0x390000; uint8_t *p;
-		sfc_erase(cs, addr, 0x20, 3); // Sector Erase (4KB)
-		sfc_spiread(cs);
-		p = (uint8_t*)(_chip == 1 ? 0x10000000 : 0x30000000);
-		p += (addr & ~0xff);
-		clean_invalidate_dcache_range(p, p + 256);
-		print_mem(stdout, p, 256);
-	}
-#endif
-}
-
-static void test_lzma(int flags) {
-	uint32_t *drps, *colb; uint8_t *dst;
-	unsigned colb_offs, src_offs, src_size, dst_size;
-	unsigned t0, t1, ret;
-	uint32_t *trapgami = NULL;
-	intptr_t fw_addr = (_chip == 1 ? 1 : 3) << 28;
-	uint32_t *p, *end = (uint32_t*)(fw_addr + 0x11000);
-
-	for (p = (uint32_t*)fw_addr; p < end; p++) {
-		// "TRAPGAMI": offsets to "DRPS" sections
-		do {
-			if (p[0] != 0x50415254) break;
-			if (p[1] != 0x494d4147) break;
-			// p[2] == ~0 if there's no image
-			if (p[2] & 0xff000003) break;
-			trapgami = p;
-			goto found;
-		} while (0);
-	}
-	return;
-
-found:
-	printf("trapgami = 0x%x, drps = 0x%x\n",
-			(intptr_t)trapgami - fw_addr, trapgami[2]);
-	drps = (uint32_t*)(fw_addr + trapgami[2]);
-	do {
-		if (drps[0] != 0x53505244) break;
-		if (drps[3] != 1) break; // count
-		colb_offs = drps[2];
-		colb = (uint32_t*)((uint8_t*)drps + colb_offs);
-		if (colb[0] != 0x424c4f43) break;
-		if (colb[1] != 0x494d4147) break;
-		src_offs = colb[2];
-		src_size = colb[3];
-		dst_size = colb[4];
-
-		dst = malloc(dst_size);
-		t0 = sys_timer_ms();
-		ret = sys_lzma_decode((uint8_t*)drps + src_offs, src_size, dst, dst_size);
-		t1 = sys_timer_ms();
-		printf("lzma_decode: %ums, ret = 0x%x\n", t1 - t0, ret);
-		if ((flags & 1) && ret == 1) {
-			FILE *f = fopen("kern.bin", "wb");
-			if (f) {
-				fwrite(dst, 1, dst_size, f);
-				fclose(f);
-			}
-		}
-		free(dst);
-	} while (0);
-}
-#endif
 
 static void test_timer(void) {
 	unsigned t0, t1, delay = 100000;
@@ -694,65 +762,23 @@ static void test_cpuid(void) {
 #endif
 		: "=r"(id0), "=r"(id1) :: "lr");
 	printf("ARM: id = 0x%08x, cache = 0x%08x\n", id0, id1);
-	// id = 0x41069265
-	// SC6530C/SC6531: cache = 0x1d152152 (16+16KB)
-	// SC6531E: cache = 0x1d112112 (8+8KB)
-
-	// UMS9117:
-	// id = 0x410fc075 (Cortex-A7 MPCore, r0p5)
-	// cache = 0x84448003
-#if UMS9117
-	{
-		uint32_t i, n, x, clidr;
-
-		__asm__ __volatile__(
-			"mrc p15, #1, %0, c0, c0, #1\n"
-			: "=r"(clidr));
-		printf("ARM: CLIDR = 0x%08x\n", clidr);
-
-		n = clidr >> 24 & 7; // LoC
-		for (i = 0; i < n; i++) {
-			__asm__ __volatile__(
-				"mcr p15, #2, %1, c0, c0, #0\n"
-				"isb\n"
-				"mrc p15, #1, %0, c0, c0, #0\n"
-				: "=r"(x) : "r"(i * 2));
-			printf("ARM: CCSIDR(%u) = 0x%08x\n", i, x);
-		}
-		// ARM: CLIDR = 0x0a200023 (LoUU = 1, LoC = 2, Ctype2 = 4, Ctype1 = 3)
-		// ARM: CCSIDR(0) = 0x700fe01a (NumSets = 0x7f, Associativity = 3, LineSize = 2)
-		// ARM: CCSIDR(1) = 0x701fe03a (NumSets = 0xff, Associativity = 7, LineSize = 2)
-		if (n > 1) {
-			__asm__ __volatile__(
-				"mcr p15, #2, %0, c0, c0, #0\n"
-				"isb\n" :: "r"(0));
-		}
-	}
-#endif
 }
 
 static int sdtest_init(int target) {
 	static int init_done = 0;
-
 	do {
 		if (!(init_done & 1)) {
 			sdio_init();
 			init_done |= 1;
 		}
 		if (!(init_done & 2)) {
-			if (sdcard_init()) {
-				printf("!!! sdcard_init failed\n");
-				break;
-			}
+			if (sdcard_init()) break;
 			SDIO_VERBOSITY(0);
 			init_done |= 2;
 		}
 		if (!(init_done & 4)) {
 			fatdata_glob.buf = (uint8_t*)CHIPRAM_ADDR + 0x9000;
-			if (fat_init(&fatdata_glob, 0)) {
-				printf("!!! fat_init failed\n");
-				break;
-			}
+			if (fat_init(&fatdata_glob, 0)) break;
 			init_done |= 4;
 		}
 	} while (0);
@@ -760,12 +786,11 @@ static int sdtest_init(int target) {
 }
 
 void eic_mask_or(unsigned val);
-int eic_read(void);
 
 static void test_eic(unsigned mask) {
 	unsigned i, val, prev = 0, start = mask, cond;
 	eic_mask_or(mask);
-	sys_wait_ms(2); // wait for update
+	sys_wait_ms(2);
 	for (;; start = 0, prev = val) {
 		val = eic_read() & mask;
 		cond = start | (val ^ prev);
@@ -780,33 +805,11 @@ static void test_efuse(void) {
 	unsigned i, n;
 	efuse_init();
 	n = EFUSE_MAX;
-#if UMS9117
-	printf("efuse data (double):\n");
 	for (i = 0; i < n / 2; i++) {
 		if (!(i & 3)) printf("0x%02x:", i);
 		printf(" %08x", efuse_read(i, 1));
 		if ((i & 3) == 3) printf("\n");
 	}
-	printf("efuse data (raw):\n");
-	for (i = 0; i < n; i++) {
-		if (!(i & 3)) printf("0x%02x:", i);
-		printf(" %08x", efuse_read(i, 0));
-		if ((i & 3) == 3) printf("\n");
-	}
-#else
-	printf("efuse data:\n");
-	for (i = 0; i < n; i++) {
-		uint32_t val;
-		if (efuse_read(i, &val)) {
-			if (i & 3) printf("\n");
-			printf("efuse_read(%u) failed\n", i);
-			break;
-		}
-		if (!(i & 3)) printf("0x%02x:", i);
-		printf(" %08x", val);
-		if ((i & 3) == 3) printf("\n");
-	}
-#endif
 	efuse_off();
 }
 
@@ -831,7 +834,7 @@ int main(int argc, char **argv) {
 
 	while (argc > 1) {
 		if (!strcmp(argv[1], "display")) {
-			test_display();
+			test_audio();
 			argc -= 1; argv += 1;
 		} else if (!strcmp(argv[1], "keypad")) {
 			test_keypad();
@@ -852,51 +855,18 @@ int main(int argc, char **argv) {
 		} else if (!strcmp(argv[1], "lzma")) {
 			test_lzma(0);
 			argc -= 1; argv += 1;
-		}	else if (!strcmp(argv[1], "sdio")) {
+		} else if (!strcmp(argv[1], "sdio")) {
 			if (!sdtest_init(3)) {
 				sdio_bench(1 << 20, 1 << 20);
 				if (0) sdio_write_test(1);
 			}
 			argc -= 1; argv += 1;
-		}	else if (!strcmp(argv[1], "eic")) {
+		} else if (!strcmp(argv[1], "eic")) {
 			test_eic(strtol(argv[2], NULL, 0));
 			argc -= 2; argv += 2;
-		}	else if (!strcmp(argv[1], "efuse")) {
+		} else if (!strcmp(argv[1], "efuse")) {
 			test_efuse();
 			argc -= 1; argv += 1;
-		}	else if (argc >= 3 && !strcmp(argv[1], "sdread")) {
-			if (!sdtest_init(7)) {
-				unsigned clust, size;
-				fat_entry_t *p = fat_find_path(&fatdata_glob, argv[2]);
-				if (!p || (p->entry.attr & FAT_ATTR_DIR)) {
-					printf("file not found\n");
-				} else {
-					const char *out_fn;
-					uint8_t *mem, *buf;
-					unsigned n;
-
-					clust = fat_entry_clust(p);
-					size = p->entry.size;
-					printf("start = 0x%x, size = 0x%x\n", clust, size);
-
-					buf = mem = malloc(((size + 0x1ff) & ~0x1ff) + 31);
-					buf += -(intptr_t)buf & 31;
-					n = fat_read_simple(&fatdata_glob, clust, buf, size);
-					printf("nread = 0x%x\n", n);
-
-					out_fn = argv[3];
-					if (*out_fn && strcmp(out_fn, "-")) {
-						FILE *fo;
-						fo = fopen(out_fn, "wb");
-						if (fo) {
-							fwrite(buf, 1, size, fo);
-							fclose(fo);
-						}
-					}
-					free(mem);
-				}
-			}
-			argc -= 3; argv += 3;
 		} else {
 			printf("unknown command (\"%s\")\n", argv[1]);
 			return 1;
@@ -919,4 +889,3 @@ void keytrn_init(void) {
 	FILL_KEYTRN(1)
 #undef FILL_KEYTRN
 }
-

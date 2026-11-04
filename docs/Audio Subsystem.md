@@ -129,79 +129,73 @@ void audio_pa_disable(void) {
 
 ---
 
-## 3. SC2720 PMIC Audio Codec & Line-Out Routing
+## 3. SC2720 PMIC Audio Codec (Analog Front-End & Line-Out)
 
-The actual audio waveform originates as differential analog audio from the SC2720 PMIC Line-Out (LOUT) block:
+The Unisoc SC2720 PMIC houses the mixed-signal Audio Codec block comprising digital clock gating, analog bias references, bandgaps, DACs, and differential Line-Out / Headphone output stages.
 
-| Register | Address | Function |
-|:---|:---:|:---|
-| **`ANA_CDC_04`** | `0x40608704` | Analog Routing (Bits [2:0] = `0x2` for Line-Out DAC enable) |
-| **`ANA_CDC_08`** | `0x40608708` | Analog Gain Control (Bits [8:5] = `0x0` mute to `0xF` max gain) |
-| **`ANA_CDC_18`** | `0x40608718` | Codec Bias & Power Reference (Bits [14:6] = `0x7fc0`) |
-| **`ANA_CDC_28`** | `0x40608728` | LOUT Mute Control (Bit 3: `1` = Unmute / Active, `0` = Mute) |
-| **`ANA_CDC_3C`** | `0x4060873c` | Bandgap Reference (Bits [6, 5, 0] = `0x61`) |
-| **`CFG_CDC_38`** | `0x40608838` | Digital Audio Clock Gate (Bits [4, 1, 0] = `0x13`) |
+### Why Register Dumps Previously Returned `0x0000`
+On cold boot or under Spreadtrum FDL1 / BootROM execution, the entire Audio Codec domain inside the SC2720 PMIC is **clock-gated and power-gated by default**.
+* **Global Clock Gate:** Register **`0x40608c08`** (`MODULE_CLK_EN`), **Bit 4 (`0x10`)** is the Master Audio Codec Clock Gate. When bit 4 is `0`, all ADI read commands to `0x40608700`..`0x406088ff` return `0x0000`, and all register writes are silently ignored by the unclocked silicon.
+* **Audio Routing Verification (Headphone vs. Speaker):**
+  - **Headphone Jack (3.5mm):** Handled by `__sprd_codec_ap_hp` (`0x801367e0`) for Audio Device ID `2`.
+  - **Loudspeaker (Handsfree):** Handled by `__sprd_codec_ap_lout` (`0x801368d0`) for Audio Device ID `1`, routing analog sound into the external Awinic Class-D PA via Line-Out (`LOUT`).
+  - Audio is **NOT** routed to the headphone jack during speaker tests; rather, the entire DAC and analog stages were previously unpowered.
 
-### PMIC Codec Setup
+### Reverse-Engineered PMIC Codec Register Map
+
+| Register | Address | Description & Verified Bitfields |
+|:---|:---|:---|
+| **`MODULE_CLK`** | `0x40608c08` | PMIC Master Module Clock Enable (**Bit 4 (`0x10`): Audio Codec Clock En**) |
+| **`ANA_CDC_00`** | `0x40608700` | Codec Analog Status / Diagnostics |
+| **`ANA_CDC_04`** | `0x40608704` | Analog Routing Control (Bits [2:0] = `0x2`: LOUT Select) |
+| **`ANA_CDC_08`** | `0x40608708` | Line-Out Volume / Gain (Bits [8:5] = `0..15` Gain Level) |
+| **`ANA_CDC_18`** | `0x40608718` | Analog Bias & Power Gates (Bits [9:4] = `0x3f0`) |
+| **`ANA_CDC_24`** | `0x40608724` | Line-Out Driver Enable (**Bit 13 (`0x2000`) & Bit 0 (`0x0001`)**: LOUT Active / Unmute) |
+| **`ANA_CDC_30`** | `0x40608730` | Analog Bias Reference (Bits 11, 9, 1 = `0x0a02`) |
+| **`ANA_CDC_34`** | `0x40608734` | Bandgap & Voltage Reference (Bits [15:14]=3, [12:11]=1, [3:2]=1, [1:0]=1 = `0xc805`) |
+| **`ANA_CDC_38`** | `0x40608738` | Analog Core Power Reference (Bits [10:7]=0xa, [6:5]=1, bit 4=1, bit 2=1 = `0x0534`) |
+| **`ANA_CDC_3C`** | `0x4060873c` | Bandgap Reference Control (Bit 0 & Bit 5..6 = `0x61`) |
+| **`CFG_CDC_38`** | `0x40608838` | Digital Audio Clock Gate (Bits [5:2] = `0x3c`) |
+| **`CFG_CDC_3C`** | `0x4060883c` | Digital Clock Logic Gate (Bit 0 = `0x01`) |
+
+### Verified PMIC Codec Initialization Sequence
+Extracted from `_sprd_codec_sc2720_init` (`0x80157540`) and `__sprd_codec_ap_lout` (`0x801368d0`) in `kernel.bin`:
+
 ```c
-void pmic_audio_codec_init(void) {
-    // 1. Enable digital audio clock gate in PMIC
-    uint32_t clk = adi_read(0x40608838);
-    adi_write(0x40608838, clk | 0x13);
+void pmic_audio_codec_init(int initial_gain) {
+    // 1. Force Vibrator Motor LDO strictly OFF (so it never vibrates during audio test)
+    adi_write(0x40608e00, adi_read(0x40608e00) | 0x300);
 
-    // 2. Power on analog bias references
-    uint32_t bias = adi_read(0x40608718);
-    adi_write(0x40608718, bias | 0x7fc0);
+    // 2. Un-gate PMIC Master Audio Codec Clock
+    adi_write_or(0x40608c08, 0x10);
 
-    // 3. Enable bandgap reference
-    uint32_t bg = adi_read(0x4060873c);
-    adi_write(0x4060873c, bg | 0x61);
+    // 3. Enable Codec Digital Clocks
+    adi_write_or(0x40608838, 0x3c);
+    adi_write_or(0x4060883c, 0x01);
 
-    // 4. Configure Line-Out routing to DAC
-    adi_write(0x40608704, 0x0002);
+    // 4. Power on Analog Bias & References
+    adi_write_or(0x40608718, 0x03f0);
+    adi_write_or(0x40608730, 0x0a02);
+    adi_write_or(0x40608734, 0xc805);
+    adi_write_or(0x40608738, 0x0534);
+    adi_write_or(0x4060873c, 0x0061);
 
-    // 5. Set default volume gain (level 10 of 15)
-    adi_write(0x40608708, (adi_read(0x40608708) & ~0x1e0) | (10 << 5));
+    // 5. Configure Line-Out Route & Volume Gain
+    adi_write(0x40608704, (adi_read(0x40608704) & ~0x7) | 0x2);
+    adi_write(0x40608708, (adi_read(0x40608708) & ~0x1e0) | ((initial_gain & 0xf) << 5));
 
-    // 6. Unmute Line-Out
-    uint32_t mute = adi_read(0x40608728);
-    adi_write(0x40608728, mute | 0x8);
+    // 6. Unmute Line-Out on 0x40608724
+    adi_write_or(0x40608724, 0x2001);
 }
 ```
 
-### Tone Generation into Active Class-D PA
-```c
-void speaker_play_tone(uint32_t freq_hz, uint32_t duration_ms, int gain) {
-    if (freq_hz == 0 || duration_ms == 0) return;
+### Acoustic Sound Generation Modes
+The Nokia 2660 Flip supports two complementary bare-metal audio generation techniques:
 
-    uint32_t half_period_us = 500000 / freq_hz;
-    uint32_t total_cycles   = (freq_hz * duration_ms) / 1000;
-
-    // 1. Energize External Class-D PA in Mode 2
-    audio_pa_enable();
-
-    // 2. Modulate PMIC Line-Out gain & mute bit to generate audio square wave
-    uint32_t reg_08 = adi_read(0x40608708) & ~0x1e0;
-    uint32_t val_hi = reg_08 | ((gain & 0xf) << 5);
-    uint32_t val_lo = reg_08;
-    uint32_t reg_28 = adi_read(0x40608728);
-
-    for (uint32_t i = 0; i < total_cycles; i++) {
-        // High phase
-        adi_write(0x40608708, val_hi);
-        adi_write(0x40608728, reg_28 | 0x8);
-        sys_wait_us(half_period_us);
-
-        // Low phase
-        adi_write(0x40608708, val_lo);
-        adi_write(0x40608728, reg_28 & ~0x8);
-        sys_wait_us(half_period_us);
-    }
-
-    // 3. Power down PA to prevent idle hiss
-    audio_pa_disable();
-}
-```
+1. **Direct Acoustic PA Tone (GPIO 31 Modulation):**
+   Toggling APB GPIO 31 at the desired acoustic frequency ($f$) directly modulates the Awinic Class-D output stage across the speaker voice coil. This produces loud, guaranteed square-wave sound directly from the physical loudspeaker without depending on the PMIC DAC or DMA pipeline.
+2. **PMIC Line-Out DAC Modulation (1-Wire Mode 2):**
+   Enables the PA continuously in Mode 2 via 1-wire pulse and modulates the PMIC Line-Out stage (`0x40608724` / `0x40608708`).
 
 ---
 
@@ -226,20 +220,20 @@ The standalone test tool [`tools/ram_payload/src/audio_test/`](/tools/ram_payloa
 
 | Key | Hex Code | Action | Hardware Details |
 |:---:|:---:|:---|:---|
-| **`1`** | `0x31` | **440 Hz (Note A4)** | Plays 300 ms concert pitch tone on Speaker PA |
-| **`2`** | `0x32` | **880 Hz (Note A5)** | Plays 300 ms high octave tone on Speaker PA |
-| **`3`** | `0x33` | **1000 Hz Reference Beep** | Standard 1 kHz test beep |
+| **`1`** | `0x31` | **440 Hz Beep (Note A4)** | Direct PA Acoustic Tone on GPIO 31 (instant square wave) |
+| **`2`** | `0x32` | **880 Hz Tone (Note A5)** | Direct PA Acoustic Tone on GPIO 31 (high octave tone) |
+| **`3`** | `0x33` | **1000 Hz Reference Beep** | Standard 1 kHz test beep via Speaker PA |
 | **`4`** | `0x34` | **2000 Hz High Pitch** | High-frequency acoustic response test |
-| **`5`** | `0x35` | **Classic Nokia Ringtone** | Full iconic 13-note melody (*Gran Vals*) |
+| **`5`** | `0x35` | **Classic Nokia Ringtone** | Full iconic 13-note melody (*Gran Vals*) on Loudspeaker |
 | **`6`** | `0x36` | **Super Mario Coin Sound** | Two-tone (B5 + E6) authentic coin chime |
 | **`7`** | `0x37` | **Audio Chirp Sweep** | Frequency ramp from 300 Hz to 2500 Hz |
-| **`8`** | `0x38` | **PA Cone Click Test** | Single 50µs pulse to verify voice coil / acoustic PA response |
-| **`9`** | `0x39` | **PMIC Codec Dump** | Dumps audio registers (0x40608704, 8708, 8728, 8838) to UART |
-| **`0`** | `0x30` | **Continuous 1 kHz Tone** | Toggles continuous 1 kHz tone generator ON / OFF |
+| **`8`** | `0x38` | **Speaker Siren & Cone Click** | Acoustic warble sweep + voice coil pulse test |
+| **`9`** | `0x39` | **Comprehensive Codec Dump** | Dumps PMIC Global, Codec CFG & ANA registers to UART |
+| **`0`** | `0x30` | **PMIC Line-Out DAC Test** | Tests PMIC Codec Mode 2 Line-Out modulation (`0x40608724`) |
 | **`#`** | `0x23` | **Super Mario Theme Intro** | Iconic game intro jingle |
 | **`*`** | `0x2A` | **Mute / Stop All Audio** | Immediately disables PA and silences output |
-| **`Vol+`** | `0x24` | **Increase Volume Gain** | Steps Line-Out gain up (0 to 15) |
-| **`Vol-`** | `0x25` | **Decrease Volume Gain** | Steps Line-Out gain down (15 to 0) |
+| **`Vol+`** | `0x24` | **Increase Volume Gain** | Steps Line-Out gain up (0 to 15) with acoustic feedback blip |
+| **`Vol-`** | `0x25` | **Decrease Volume Gain** | Steps Line-Out gain down (15 to 0) with acoustic feedback blip |
 | **Hold `End`** | `0x02` | **Clean Exit** | Restores idle state and returns to bootloader/FDL |
 
 ---

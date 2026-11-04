@@ -166,22 +166,36 @@ static void audio_pa_disable(void) {
 	sys_wait_ms(2);
 }
 
-// Initialize PMIC Audio Codec bias & Line-Out route
-// Reversed from sprd_codec_state_v0.c (__sprd_codec2720_ap_en & __sprd_codec_ap_lout)
+// Initialize PMIC Audio Codec bias, clocks & Line-Out route
+// Re-engineered from official Unisoc MOCOR kernel.bin:
+//   - _sprd_codec_sc2720_init (@ 0x80157540): enables PMIC global clock 0x40608c08 bit 4
+//   - __sprd_codec2720_ap_en / cfg (@ 0x80135d26): un-gates digital clocks 0x40608838 & 0x4060883c
+//   - analog bias & bandgap (@ 0x80157558, 0x801575a0, 0x80157970): 0x40608730, 0x40608734, 0x40608738
+//   - __sprd_codec_ap_lout (@ 0x801368d0): un-mutes LOUT on 0x40608724 (bits 13 & 0)
 static void pmic_codec_init(int initial_gain) {
 	// 1. Force Vibrator Motor LDO strictly OFF (so it never vibrates during audio test)
 	adi_write(PMIC_LDO_VIBR, adi_read(PMIC_LDO_VIBR) | 0x300);
 
-	// 2. Enable Codec Digital Clock & Logic (0x40608838: bits [4, 1, 0])
-	adi_write(0x40608838, adi_read(0x40608838) | 0x13);
+	// 2. Un-gate PMIC Master Audio Codec Clock (0x40608c08 bit 4)
+	// Without this, all codec registers (0x40608700..0x406088ff) are completely unclocked
+	// and read as 0x0000, silently discarding any writes!
+	adi_write_or(0x40608c08, 0x10);
 
-	// 3. Enable Codec Analog Bias / Voltage References (0x40608718: bits [14:6])
-	adi_write(0x40608718, adi_read(0x40608718) | 0x7fc0);
+	// 3. Enable Codec Digital Clock & Logic Gates (0x40608838 bits [5:2] & 0x4060883c bit 0)
+	adi_write_or(0x40608838, 0x3c);
+	adi_write_or(0x4060883c, 0x01);
 
-	// 4. Enable Bandgap Reference (0x4060873c: bits [6, 5, 0])
-	adi_write(0x4060873c, adi_read(0x4060873c) | 0x61);
+	// 4. Enable Codec Analog Bias / Voltage References (0x40608718 bits [9:4])
+	adi_write_or(0x40608718, 0x03f0);
 
-	// 5. Configure Line-Out Route (LOUT to External PA):
+	// 5. Initialize PMIC Analog Audio Reference, Bias, and Bandgap
+	// Exact sequence from _sprd_codec_sc2720_init:
+	adi_write_or(0x40608730, 0x0a02); // Bits 11, 9, 1
+	adi_write_or(0x40608734, 0xc805); // Bits [15:14]=3, [12:11]=1, [3:2]=1, [1:0]=1
+	adi_write_or(0x40608738, 0x0534); // Bits [10:7]=0xa, [6:5]=1, bit 4=1, bit 2=1
+	adi_write_or(0x4060873c, 0x0061); // Bandgap enable
+
+	// 6. Configure Line-Out Route (LOUT to External PA):
 	// 0x40608704: bits [2:0] = 2 (LOUT select)
 	adi_write(0x40608704, (adi_read(0x40608704) & ~0x7) | 0x2);
 
@@ -190,8 +204,9 @@ static void pmic_codec_init(int initial_gain) {
 	if (initial_gain > 15) initial_gain = 15;
 	adi_write(0x40608708, (adi_read(0x40608708) & ~0x1e0) | ((initial_gain & 0xf) << 5));
 
-	// 0x40608728: bit 3 = 1 (LOUT unmuted / active)
-	adi_write(0x40608728, adi_read(0x40608728) | 0x8);
+	// 0x40608724: bits 13 (0x2000) and 0 (0x0001) = 1 (LOUT unmuted / active)
+	// (Reversed directly from __sprd_codec_ap_lout @ 0x801368d0)
+	adi_write_or(0x40608724, 0x2001);
 
 	// Ensure PA starts in clean muted state
 	audio_pa_disable();
@@ -205,8 +220,35 @@ static void pmic_codec_set_gain(int gain) {
 	adi_write(0x40608708, val);
 }
 
-// Drive audio tone through the external speaker
-// Modulates the differential analog output of PMIC Line-Out into the active Class-D PA
+// Direct Acoustic PA Tone Generation
+// Drives the Awinic Class-D power amplifier directly via APB GPIO 31 at the exact acoustic frequency.
+// This physically modulates the speaker H-bridge, producing guaranteed audible square-wave sound
+// from the Nokia 2660's loudspeaker!
+static void pa_play_acoustic_tone(uint32_t freq_hz, uint32_t duration_ms) {
+	if (freq_hz == 0 || duration_ms == 0) {
+		if (duration_ms) sys_wait_ms(duration_ms);
+		return;
+	}
+
+	audio_pa_init_gpio();
+
+	uint32_t half_period_us = 500000 / freq_hz;
+	if (half_period_us < 20) half_period_us = 20;
+	uint32_t total_cycles = (freq_hz * duration_ms) / 1000;
+	if (total_cycles == 0) total_cycles = 1;
+
+	for (uint32_t i = 0; i < total_cycles; i++) {
+		gpio_pin_set(AUDIO_PA_GPIO, 0, 1);
+		sys_wait_us(half_period_us);
+		gpio_pin_set(AUDIO_PA_GPIO, 0, 0);
+		sys_wait_us(half_period_us);
+	}
+
+	audio_pa_disable();
+}
+
+// Drive audio tone through External Speaker PA + PMIC Line-Out DAC
+// Modulates PMIC Line-Out analog gain into the active Class-D PA (1-wire Mode 2)
 static void speaker_play_tone(uint32_t freq_hz, uint32_t duration_ms, int gain) {
 	if (freq_hz == 0 || duration_ms == 0) {
 		if (duration_ms) sys_wait_ms(duration_ms);
@@ -224,23 +266,23 @@ static void speaker_play_tone(uint32_t freq_hz, uint32_t duration_ms, int gain) 
 	uint32_t reg_08 = adi_read(0x40608708) & ~0x1e0;
 	uint32_t val_hi = reg_08 | ((gain & 0xf) << 5);
 	uint32_t val_lo = reg_08; // zero gain
-	uint32_t reg_28 = adi_read(0x40608728);
+	uint32_t reg_24 = adi_read(0x40608724);
 
 	for (uint32_t i = 0; i < total_cycles; i++) {
 		// HIGH phase: full gain + unmuted
 		adi_write(0x40608708, val_hi);
-		adi_write(0x40608728, reg_28 | 0x8);
+		adi_write(0x40608724, reg_24 | 0x2001);
 		sys_wait_us(half_period_us);
 
 		// LOW phase: zero gain + muted
 		adi_write(0x40608708, val_lo);
-		adi_write(0x40608728, reg_28 & ~0x8);
+		adi_write(0x40608724, reg_24 & ~0x2001);
 		sys_wait_us(half_period_us);
 	}
 
 	// Restore unmuted idle state and power down PA to prevent idle hiss
 	adi_write(0x40608708, val_hi);
-	adi_write(0x40608728, reg_28 | 0x8);
+	adi_write(0x40608724, reg_24 | 0x2001);
 	audio_pa_disable();
 }
 
@@ -249,9 +291,21 @@ static void speaker_play_tone(uint32_t freq_hz, uint32_t duration_ms, int gain) 
 static void speaker_click_test(int count) {
 	for (int i = 0; i < count; i++) {
 		audio_pa_enable();
-		sys_wait_ms(3);
+		sys_wait_ms(4);
 		audio_pa_disable();
 		sys_wait_ms(40);
+	}
+}
+
+// Loud Speaker Siren / Fast Acoustic Warble (Direct PA)
+static void speaker_siren_test(void) {
+	for (int rep = 0; rep < 3; rep++) {
+		for (uint32_t f = 400; f < 1600; f += 40) {
+			pa_play_acoustic_tone(f, 8);
+		}
+		for (uint32_t f = 1600; f > 400; f -= 40) {
+			pa_play_acoustic_tone(f, 8);
+		}
 	}
 }
 
@@ -304,9 +358,10 @@ static const note_t melody_mario_intro[] = {
 };
 
 static void play_melody(const note_t *notes, int gain) {
+	(void)gain;
 	while (notes->freq_hz || notes->duration_ms) {
 		if (notes->freq_hz) {
-			speaker_play_tone(notes->freq_hz, notes->duration_ms, gain);
+			pa_play_acoustic_tone(notes->freq_hz, notes->duration_ms);
 		} else {
 			sys_wait_ms(notes->duration_ms);
 		}
@@ -317,27 +372,54 @@ static void play_melody(const note_t *notes, int gain) {
 }
 
 static void play_chirp(int gain) {
-	for (uint32_t f = 300; f <= 2500; f += 50) {
-		speaker_play_tone(f, 12, gain);
+	(void)gain;
+	for (uint32_t f = 300; f <= 2500; f += 40) {
+		pa_play_acoustic_tone(f, 15);
 	}
 	audio_pa_disable();
 }
 
-// Dump PMIC Audio Codec registers to console for diagnostics
+// Dump PMIC Audio Codec & Global Clock/Power registers to console for diagnostics
 static void dump_codec_registers(void) {
-	printf("\n--- SC2720 PMIC AUDIO CODEC DUMP ---\n");
-	printf("  0x40608700 (ANA_00): 0x%04x\n", (unsigned)adi_read(0x40608700));
-	printf("  0x40608704 (ANA_04): 0x%04x\n", (unsigned)adi_read(0x40608704));
-	printf("  0x40608708 (ANA_08): 0x%04x (Gain bits[8:5]=0x%x)\n",
+	printf("\n--- SC2720 PMIC & AUDIO SUBSYSTEM DUMP ---\n");
+	printf("[PMIC GLOBAL CLOCK & POWER]\n");
+	printf("  0x40608c00 (MODULE_EN0): 0x%04x\n", (unsigned)adi_read(0x40608c00));
+	printf("  0x40608c04 (MODULE_EN1): 0x%04x\n", (unsigned)adi_read(0x40608c04));
+	printf("  0x40608c08 (MODULE_CLK): 0x%04x (Audio Codec Clock bit 4 = %u)\n",
+	       (unsigned)adi_read(0x40608c08), (unsigned)((adi_read(0x40608c08) >> 4) & 1));
+	printf("  0x40608c0c (SOFT_RST0) : 0x%04x\n", (unsigned)adi_read(0x40608c0c));
+	printf("  0x40608d34 (LDO_AVDD)  : 0x%04x\n", (unsigned)adi_read(0x40608d34));
+
+	printf("[SC2720 CODEC DIGITAL CLOCK & CFG]\n");
+	printf("  0x40608838 (CFG_38)    : 0x%04x (Digital Clock bits[5:2]=0x%x)\n",
+	       (unsigned)adi_read(0x40608838), (unsigned)((adi_read(0x40608838) >> 2) & 0xf));
+	printf("  0x4060883c (CFG_3C)    : 0x%04x (Clock Gate bit 0 = %u)\n",
+	       (unsigned)adi_read(0x4060883c), (unsigned)(adi_read(0x4060883c) & 1));
+
+	printf("[SC2720 CODEC ANALOG FRONT-END & LOUT]\n");
+	printf("  0x40608700 (ANA_00)    : 0x%04x\n", (unsigned)adi_read(0x40608700));
+	printf("  0x40608704 (ANA_04)    : 0x%04x (Route Select bits[2:0]=%u)\n",
+	       (unsigned)adi_read(0x40608704), (unsigned)(adi_read(0x40608704) & 7));
+	printf("  0x40608708 (ANA_08)    : 0x%04x (Gain bits[8:5]=0x%x)\n",
 	       (unsigned)adi_read(0x40608708), (unsigned)((adi_read(0x40608708) >> 5) & 0xf));
-	printf("  0x40608718 (ANA_18): 0x%04x (Bias/Power)\n", (unsigned)adi_read(0x40608718));
-	printf("  0x40608728 (ANA_28): 0x%04x (LOUT En bit3=%u)\n",
-	       (unsigned)adi_read(0x40608728), (unsigned)((adi_read(0x40608728) >> 3) & 1));
-	printf("  0x4060873c (ANA_3C): 0x%04x (Bandgap)\n", (unsigned)adi_read(0x4060873c));
-	printf("  0x40608838 (CFG_38): 0x%04x (Digital Clock)\n", (unsigned)adi_read(0x40608838));
-	printf("  0x40608e00 (LDO_VIBR): 0x%04x (Vibrator PD=%u)\n",
+	printf("  0x40608718 (ANA_18)    : 0x%04x (Bias/Power bits[9:4]=0x%x)\n",
+	       (unsigned)adi_read(0x40608718), (unsigned)((adi_read(0x40608718) >> 4) & 0x3f));
+	printf("  0x40608724 (ANA_24)    : 0x%04x (LOUT En bits[13,0]=0x%x)\n",
+	       (unsigned)adi_read(0x40608724), (unsigned)(adi_read(0x40608724) & 0x2001));
+	printf("  0x40608730 (ANA_30)    : 0x%04x (Bias Ref bits[11,9,1])\n", (unsigned)adi_read(0x40608730));
+	printf("  0x40608734 (ANA_34)    : 0x%04x (Bandgap)\n", (unsigned)adi_read(0x40608734));
+	printf("  0x40608738 (ANA_38)    : 0x%04x (Analog Power)\n", (unsigned)adi_read(0x40608738));
+	printf("  0x4060873c (ANA_3C)    : 0x%04x (Bandgap En bit0=%u)\n",
+	       (unsigned)adi_read(0x4060873c), (unsigned)(adi_read(0x4060873c) & 1));
+
+	printf("[PERIPHERALS & ROUTING]\n");
+	printf("  0x40608e00 (LDO_VIBR)  : 0x%04x (Vibrator PD=%u)\n",
 	       (unsigned)adi_read(PMIC_LDO_VIBR), (unsigned)((adi_read(PMIC_LDO_VIBR) >> 8) & 1));
-	printf("------------------------------------\n\n");
+	printf("  GPIO 31    (AUDIO_PA)  : DATA=%d, DIR=%d, DMSK=%d\n",
+	       gpio_pin_set(AUDIO_PA_GPIO, 0, -1),
+	       gpio_pin_set(AUDIO_PA_GPIO, 8, -1),
+	       gpio_pin_set(AUDIO_PA_GPIO, 4, -1));
+	printf("------------------------------------------\n\n");
 }
 
 // =============================================================================
@@ -381,8 +463,8 @@ static void draw_audio_dashboard(uint16_t *fb, unsigned w, unsigned h, unsigned 
 	// Card 1: Hardware Specs Box (48..84)
 	draw_fill_rect(fb, w, h, 10, 48, w - 20, 36, 0x0000);
 	draw_rect(fb, w, h, 10, 48, w - 20, 36, 0x03E0);
-	draw_text_xy(fb, w, h, 16, 52, "Speaker PA: GPIO 31 (1-Wire Mode 2)", 0x07E0, 0x0000, 1);
-	draw_text_xy(fb, w, h, 16, 68, "Audio Route: PMIC Line-Out (0x40608708)", 0xFFFF, 0x0000, 1);
+	draw_text_xy(fb, w, h, 16, 52, "Speaker PA: GPIO 31 (Direct & Mode 2)", 0x07E0, 0x0000, 1);
+	draw_text_xy(fb, w, h, 16, 68, "Audio Route: Speaker PA & PMIC LOUT", 0xFFFF, 0x0000, 1);
 
 	// Card 2: Interactive Active Sound Card (88..160)
 	uint16_t border_col = pa_active ? 0x07E0 : ((frame & 16) ? 0xFD20 : 0x001F);
@@ -415,7 +497,7 @@ static void draw_audio_dashboard(uint16_t *fb, unsigned w, unsigned h, unsigned 
 	draw_text_xy(fb, w, h, 16, 206, "[3] 1000Hz Test  [4] 2000Hz High", 0xFFFF, 0x0000, 1);
 	draw_text_xy(fb, w, h, 16, 222, "[5] Nokia Tune   [6] Mario Coin", 0x07E0, 0x0000, 1);
 	draw_text_xy(fb, w, h, 16, 238, "[7] Audio Sweep  [8] Cone Click", 0xFFE0, 0x0000, 1);
-	draw_text_xy(fb, w, h, 16, 254, "[9] Codec Dump   [0] 1kHz Toggle", 0x07FF, 0x0000, 1);
+	draw_text_xy(fb, w, h, 16, 254, "[9] Codec Dump   [0] LOUT DAC Test", 0x07FF, 0x0000, 1);
 	draw_text_xy(fb, w, h, 16, 270, "[*] Mute sound   [#] Mario Theme", 0xCE79, 0x0000, 1);
 
 	// Footer bar
@@ -457,7 +539,6 @@ void test_audio(void) {
 
 	unsigned frame = 0;
 	int pa_active = 0;
-	int cont_tone = 0;
 	char status_msg[32] = "READY (Press 1-9 to Play)";
 
 	int last_pb = read_power_button();
@@ -476,43 +557,43 @@ void test_audio(void) {
 			if (type == EVENT_KEYDOWN) {
 				int code = key & 0x7fff;
 				switch (code) {
-				case 0x31: // '1' -> 440 Hz Beep (Concert A)
-					strncpy(status_msg, "Playing: 440 Hz (Beep)", sizeof(status_msg) - 1);
+				case 0x31: // '1' -> 440 Hz Beep (Direct PA Acoustic Tone)
+					strncpy(status_msg, "PA Tone: 440 Hz (Beep)", sizeof(status_msg) - 1);
 					pa_active = 1;
 					draw_audio_dashboard(framebuf, w, h, frame, status_msg, gain_level, pa_active);
 					sys_start_refresh(); sys_wait_refresh();
-					printf("  [Audio] Playing 440 Hz Concert A tone...\n");
-					speaker_play_tone(440, 300, gain_level);
+					printf("  [Audio] Playing 440 Hz Concert A tone via PA GPIO 31...\n");
+					pa_play_acoustic_tone(440, 350);
 					pa_active = 0;
 					break;
 
 				case 0x32: // '2' -> 880 Hz Tone
-					strncpy(status_msg, "Playing: 880 Hz (A5)", sizeof(status_msg) - 1);
+					strncpy(status_msg, "PA Tone: 880 Hz (A5)", sizeof(status_msg) - 1);
 					pa_active = 1;
 					draw_audio_dashboard(framebuf, w, h, frame, status_msg, gain_level, pa_active);
 					sys_start_refresh(); sys_wait_refresh();
-					printf("  [Audio] Playing 880 Hz High A tone...\n");
-					speaker_play_tone(880, 300, gain_level);
+					printf("  [Audio] Playing 880 Hz High A tone via PA GPIO 31...\n");
+					pa_play_acoustic_tone(880, 350);
 					pa_active = 0;
 					break;
 
 				case 0x33: // '3' -> 1000 Hz Test Beep
-					strncpy(status_msg, "Playing: 1000 Hz Test", sizeof(status_msg) - 1);
+					strncpy(status_msg, "PA Tone: 1000 Hz Test", sizeof(status_msg) - 1);
 					pa_active = 1;
 					draw_audio_dashboard(framebuf, w, h, frame, status_msg, gain_level, pa_active);
 					sys_start_refresh(); sys_wait_refresh();
-					printf("  [Audio] Playing 1000 Hz Reference Beep...\n");
-					speaker_play_tone(1000, 300, gain_level);
+					printf("  [Audio] Playing 1000 Hz Reference Beep via PA GPIO 31...\n");
+					pa_play_acoustic_tone(1000, 350);
 					pa_active = 0;
 					break;
 
 				case 0x34: // '4' -> 2000 Hz High Pitch
-					strncpy(status_msg, "Playing: 2000 Hz High", sizeof(status_msg) - 1);
+					strncpy(status_msg, "PA Tone: 2000 Hz High", sizeof(status_msg) - 1);
 					pa_active = 1;
 					draw_audio_dashboard(framebuf, w, h, frame, status_msg, gain_level, pa_active);
 					sys_start_refresh(); sys_wait_refresh();
-					printf("  [Audio] Playing 2000 Hz High Pitch Beep...\n");
-					speaker_play_tone(2000, 300, gain_level);
+					printf("  [Audio] Playing 2000 Hz High Pitch Beep via PA GPIO 31...\n");
+					pa_play_acoustic_tone(2000, 350);
 					pa_active = 0;
 					break;
 
@@ -521,7 +602,7 @@ void test_audio(void) {
 					pa_active = 1;
 					draw_audio_dashboard(framebuf, w, h, frame, status_msg, gain_level, pa_active);
 					sys_start_refresh(); sys_wait_refresh();
-					printf("  [Audio] >>> Playing Iconic Nokia Ringtone! <<<\n");
+					printf("  [Audio] >>> Playing Iconic Nokia Ringtone via Loudspeaker! <<<\n");
 					play_melody(melody_nokia, gain_level);
 					pa_active = 0;
 					break;
@@ -546,13 +627,14 @@ void test_audio(void) {
 					pa_active = 0;
 					break;
 
-				case 0x38: // '8' -> Acoustic Cone Click Test
-					strncpy(status_msg, "PA Cone Click (10x)", sizeof(status_msg) - 1);
+				case 0x38: // '8' -> Speaker Siren & Click Test
+					strncpy(status_msg, "PA Siren & Click Test", sizeof(status_msg) - 1);
 					pa_active = 1;
 					draw_audio_dashboard(framebuf, w, h, frame, status_msg, gain_level, pa_active);
 					sys_start_refresh(); sys_wait_refresh();
-					printf("  [Audio] Performing acoustic PA cone click pulse test...\n");
-					speaker_click_test(10);
+					printf("  [Audio] Performing acoustic PA siren & cone click test...\n");
+					speaker_siren_test();
+					speaker_click_test(5);
 					pa_active = 0;
 					break;
 
@@ -561,20 +643,14 @@ void test_audio(void) {
 					strncpy(status_msg, "Dumped Codec Regs", sizeof(status_msg) - 1);
 					break;
 
-				case 0x30: // '0' -> Toggle 1 kHz Continuous Tone
-					cont_tone = !cont_tone;
-					if (cont_tone) {
-						strncpy(status_msg, "Continuous 1kHz: ON", sizeof(status_msg) - 1);
-						pa_active = 1;
-						draw_audio_dashboard(framebuf, w, h, frame, status_msg, gain_level, pa_active);
-						sys_start_refresh(); sys_wait_refresh();
-						speaker_play_tone(1000, 1500, gain_level);
-						pa_active = 0;
-						cont_tone = 0;
-					} else {
-						audio_pa_disable();
-						strncpy(status_msg, "Continuous Tone: OFF", sizeof(status_msg) - 1);
-					}
+				case 0x30: // '0' -> PMIC DAC Mode 2 Test
+					strncpy(status_msg, "PMIC DAC LOUT Test", sizeof(status_msg) - 1);
+					pa_active = 1;
+					draw_audio_dashboard(framebuf, w, h, frame, status_msg, gain_level, pa_active);
+					sys_start_refresh(); sys_wait_refresh();
+					printf("  [Audio] Testing PMIC Codec Mode 2 Line-Out modulation (440 Hz)...\n");
+					speaker_play_tone(440, 500, gain_level);
+					pa_active = 0;
 					break;
 
 				case 0x24: // Volume Up -> Increase Line-Out Gain
@@ -582,7 +658,7 @@ void test_audio(void) {
 					pmic_codec_set_gain(gain_level);
 					snprintf(status_msg, sizeof(status_msg), "Gain: %d/15", gain_level);
 					printf("  [Config] Line-Out gain set to %d/15\n", gain_level);
-					speaker_play_tone(1200, 40, gain_level); // Short audible feedback blip
+					pa_play_acoustic_tone(1200, 40); // Instant acoustic feedback blip
 					break;
 
 				case 0x25: // Volume Down -> Decrease Line-Out Gain
@@ -590,7 +666,7 @@ void test_audio(void) {
 					pmic_codec_set_gain(gain_level);
 					snprintf(status_msg, sizeof(status_msg), "Gain: %d/15", gain_level);
 					printf("  [Config] Line-Out gain set to %d/15\n", gain_level);
-					speaker_play_tone(800, 40, gain_level); // Short audible feedback blip
+					pa_play_acoustic_tone(800, 40); // Instant acoustic feedback blip
 					break;
 
 				case 0x2a: // '*' -> Stop all sounds / mute
