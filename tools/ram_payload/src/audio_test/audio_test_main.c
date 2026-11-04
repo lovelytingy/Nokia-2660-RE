@@ -131,9 +131,9 @@ static int gpio_pin_set(unsigned id, unsigned off, int state) {
 // External PA is routed through GPIO 31
 #define AUDIO_PA_GPIO 31
 
+void sys_wait_clk(uint32_t delay);
+
 static void audio_pa_init(void) {
-	// Enable APB GPIO clock if not already enabled
-	MEM4(0x402e1000) |= 8;
 	// Configure GPIO 31 as output
 	gpio_pin_set(AUDIO_PA_GPIO, 4, 1);    // GPIO_DMSK
 	gpio_pin_set(AUDIO_PA_GPIO, 8, 1);    // GPIO_DIR = output
@@ -145,15 +145,16 @@ static void audio_pa_set(int state) {
 	gpio_pin_set(AUDIO_PA_GPIO, 0, state ? 1 : 0);
 }
 
-// Synthesize a precise square-wave audio frequency on the speaker PA
+// Drive audio frequency on the speaker PA pin
 static void speaker_play_tone(uint32_t freq_hz, uint32_t duration_ms) {
 	if (freq_hz == 0 || duration_ms == 0) {
 		if (duration_ms) sys_wait_ms(duration_ms);
 		return;
 	}
 
-	uint32_t half_period_us = 1000000 / (freq_hz * 2);
-	if (half_period_us < 15) half_period_us = 15;
+	// 26 MHz APB clock: half period in clock cycles
+	uint32_t half_period_clk = 26000000 / (freq_hz * 2);
+	if (half_period_clk < 200) half_period_clk = 200;
 	uint32_t total_cycles = (freq_hz * duration_ms) / 1000;
 	if (total_cycles == 0) total_cycles = 1;
 
@@ -161,25 +162,33 @@ static void speaker_play_tone(uint32_t freq_hz, uint32_t duration_ms) {
 
 	for (uint32_t i = 0; i < total_cycles; i++) {
 		audio_pa_set(1);
-		sys_wait_us(half_period_us);
+		sys_wait_clk(half_period_clk);
 		audio_pa_set(0);
-		sys_wait_us(half_period_us);
+		sys_wait_clk(half_period_clk);
 	}
 }
 
 // =============================================================================
-// SC2720 PMIC HAPTIC / VIBRATOR MOTOR DRIVER (0x40608df4)
+// SC2720 PMIC HAPTIC / VIBRATOR MOTOR DRIVER (0x40608e00 - LDO_VIBR)
+// Disassembled from MOCOR kernel.bin @ 0x80be704c (analog_phy.c):
+//   "Vibrator vlaue  = %d V,POWER_ON!!!!!!!!!!!!!!!"
+//   "Vibrator vlaue  = %d,POWER_DOWN!!!!!!!!!!!!!!!"
 // =============================================================================
-#define PMIC_VIB_REG 0x40608df4
+#define PMIC_LDO_VIBR_REG 0x40608e00
 
-// Enable or disable vibrator motor; level = 0..15 (voltage control)
+// Enable or disable vibrator motor; level = 0..7 (2.8V .. 3.5V)
 static void vibrator_set(int enable, int level) {
-	uint32_t cur = adi_read(PMIC_VIB_REG);
 	if (enable) {
-		level &= 0x0f;
-		adi_write(PMIC_VIB_REG, (cur & ~0x800f) | 0x8000 | level);
+		if (level < 0) level = 0;
+		if (level > 7) level = 7;
+		uint32_t val = adi_read(PMIC_LDO_VIBR_REG);
+		val = (val & ~0x7) | (level & 0x7);
+		val &= ~0x300; // Clear bit 8 and bit 9 -> POWER ON
+		adi_write(PMIC_LDO_VIBR_REG, val);
 	} else {
-		adi_write(PMIC_VIB_REG, cur & ~0x8000);
+		uint32_t val = adi_read(PMIC_LDO_VIBR_REG);
+		val |= 0x300;  // Set bit 8 and bit 9 -> POWER DOWN
+		adi_write(PMIC_LDO_VIBR_REG, val);
 	}
 }
 
@@ -368,7 +377,7 @@ void test_audio(void) {
 
 	printf("\n======================================================\n");
 	printf("  NOKIA 2660 FLIP (TA-1480) - AUDIO & HAPTICS DRIVER\n");
-	printf("  >>> SPEAKER PA (GPIO 31) & PMIC VIBRATOR (0x40608df4) <<<\n");
+	printf("  >>> SPEAKER PA (GPIO 31) & PMIC LDO_VIBR (0x40608e00) <<<\n");
 	printf("======================================================\n");
 	printf("  LCD: %ux%u | Volatile DRAM execution active\n", w, h);
 	printf("  [1] 440 Hz Beep         [2] 880 Hz Tone\n");
@@ -376,22 +385,21 @@ void test_audio(void) {
 	printf("  [5] Classic Nokia Tune  [6] Super Mario Coin\n");
 	printf("  [7] Frequency Sweep     [8] Haptic Click (50ms)\n");
 	printf("  [9] SOS Morse Vibration [0] Heavy Rumble (400ms)\n");
-	printf("  [Vol+/Vol-] Adjust Vibrator Level (0..15)\n");
+	printf("  [Vol+/Vol-] Adjust Vibrator Level (0..7)\n");
 	printf("  [*] Stop Audio / Idle   [Hold END key] Exit payload\n\n");
 
 	unsigned frame = 0;
-	int vib_level = 12; // Default strong haptic voltage level
+	int vib_level = 7; // Default max haptic voltage (3.5V)
 	int pa_active = 0;
-	char status_msg[32] = "IDLE (Press 1-9 to Play)";
+	char status_msg[32] = "READY (Press 1-9 to Test)";
 
 	int last_pb = read_power_button();
 	int pb_held_frames = 0;
 
-	// Initial greeting: quick pleasant double-chirp and haptic tick
-	vibrator_pulse(30, 8);
-	speaker_play_tone(880, 50);
-	sys_wait_ms(20);
-	speaker_play_tone(1760, 80);
+	// Draw and refresh first frame immediately so screen is active right away
+	draw_audio_dashboard(framebuf, w, h, frame, status_msg, vib_level, pa_active);
+	sys_start_refresh();
+	sys_wait_refresh();
 
 	while (frame < 7200) { // Up to 4 minutes interactive runtime
 		// 1. Drain keypad events
@@ -502,17 +510,17 @@ void test_audio(void) {
 					break;
 
 				case 0x24: // Volume Up -> Increase vibrator level
-					if (vib_level < 15) vib_level++;
-					snprintf(status_msg, sizeof(status_msg), "Vib Level: %d/15", vib_level);
+					if (vib_level < 7) vib_level++;
+					snprintf(status_msg, sizeof(status_msg), "Vib Level: %d/7 (%d.%dV)", vib_level, (28 + vib_level) / 10, (28 + vib_level) % 10);
 					vibrator_pulse(25, vib_level);
-					printf("  [Config] Vibrator level set to %d/15\n", vib_level);
+					printf("  [Config] Vibrator level set to %d/7 (%d.%dV)\n", vib_level, (28 + vib_level) / 10, (28 + vib_level) % 10);
 					break;
 
 				case 0x25: // Volume Down -> Decrease vibrator level
 					if (vib_level > 0) vib_level--;
-					snprintf(status_msg, sizeof(status_msg), "Vib Level: %d/15", vib_level);
+					snprintf(status_msg, sizeof(status_msg), "Vib Level: %d/7 (%d.%dV)", vib_level, (28 + vib_level) / 10, (28 + vib_level) % 10);
 					if (vib_level > 0) vibrator_pulse(25, vib_level);
-					printf("  [Config] Vibrator level set to %d/15\n", vib_level);
+					printf("  [Config] Vibrator level set to %d/7 (%d.%dV)\n", vib_level, (28 + vib_level) / 10, (28 + vib_level) % 10);
 					break;
 
 				case 0x2a: // '*' -> Stop all sounds / idle

@@ -130,35 +130,40 @@ The Nokia 2660 Flip contains an Eccentric Rotating Mass (ERM) haptic vibration m
 
 The PMIC is accessed over the internal high-speed **ADI (Analog-Digital Interface)** serial bus mapped at memory address `0x40608000`.
 
-### Register Layout: SC2720 Vibrator Control (`0x40608df4`)
-Disassembly of `kernel.bin` at `0x8085f1c4` reveals the exact bitfield used by the official Unisoc driver:
+> [!NOTE]
+> Physical register `0x40608df4` is the **Flashlight / Rear Torch LED** controller. The dedicated **ERM Haptic Vibrator Motor** is powered by the `LDO_VIBR` rail controlled at **`0x40608e00`**. For full details, see [`docs/Flashlight & Haptics.md`](file:///Users/lovelytingy/Documents/Personal-Projects/Nokia-2660-RE/docs/Flashlight%20%26%20Haptics.md).
+
+### Register Layout: SC2720 Vibrator Control (`0x40608e00` - LDO_VIBR)
+Disassembly of `kernel.bin` at `0x80be704c` (`analog_phy.c`) reveals the exact bitfield used by the official Unisoc driver:
 
 | Bits | Field | Description |
 |:---:|:---|:---|
-| **[15]** | `VIB_EN` | **Motor Power Gate:** `1` = Enable power LDO, `0` = Power off / brake |
-| **[14:4]** | `RESERVED` | Preserved during read-modify-write operations |
-| **[3:0]** | `VIB_LEVEL` | **Motor Voltage / Intensity Level:** `0x0` (Weakest) to `0xF` (Strongest, ~3.3V) |
+| **[2:0]** | `LDO_VIBR_V` | **Motor Voltage / Intensity Level:** `0` (2.8V) to `7` (3.5V max rumble) |
+| **[7:3]** | `RESERVED` | Preserved during read-modify-write operations |
+| **[8]** | `LDO_VIBR_PD` | **Motor Power Gate:** `0` = Power ON (active), `1` = Power Down / Disable |
+| **[9]** | `SLP_LDOVIBR_PD_EN` | **Sleep Power-Down Enable:** `0` = Active, `1` = Sleep Power Down |
 
 ### Bare-Metal Vibrator Driver
 ```c
-#define PMIC_VIB_REG 0x40608df4
+#define PMIC_LDO_VIBR_REG 0x40608e00
 
 uint32_t adi_read(uint32_t addr);
 void adi_write(uint32_t addr, uint32_t val);
 
-// Set vibrator enable state and intensity level (0..15)
+// Set vibrator enable state and voltage level (0..7 -> 2.8V..3.5V)
 void vibrator_set(int enable, int level) {
-    uint32_t cur = adi_read(PMIC_VIB_REG);
     if (enable) {
-        if (level < 0)  level = 0;
-        if (level > 15) level = 15;
-        // Keep reserved bits, set bit 15 (enable), apply intensity in [3:0]
-        cur = (cur & ~0x800F) | 0x8000 | (level & 0xF);
+        if (level < 0) level = 0;
+        if (level > 7) level = 7;
+        uint32_t val = adi_read(PMIC_LDO_VIBR_REG);
+        val = (val & ~0x7) | (level & 0x7);
+        val &= ~0x300; // Clear bit 8 (PD) and bit 9 (SLP_PD) -> Power ON
+        adi_write(PMIC_LDO_VIBR_REG, val);
     } else {
-        // Clear bit 15 to disable motor
-        cur &= ~0x8000;
+        uint32_t val = adi_read(PMIC_LDO_VIBR_REG);
+        val |= 0x300;  // Set bit 8 and bit 9 -> Power Down
+        adi_write(PMIC_LDO_VIBR_REG, val);
     }
-    adi_write(PMIC_VIB_REG, cur);
 }
 
 // Generate timed vibration pulse in milliseconds

@@ -98,7 +98,7 @@ static void draw_text_xy(uint16_t *fb, unsigned w, unsigned h, unsigned x0, unsi
 }
 
 // =============================================================================
-// HARDWARE PERIPHERAL DRIVERS: SC2720 PMIC & GPIO VIBRATOR MOTOR
+// HARDWARE PERIPHERAL DRIVERS: SC2720 PMIC VIBRATOR MOTOR (0x40608e00)
 // =============================================================================
 
 uint32_t adi_read(uint32_t addr);
@@ -111,68 +111,37 @@ static inline int read_power_button(void) {
 	return ((eic_read() >> 1) & 1) ^ 1;
 }
 
-#define GPIO_BASE 0x40280000
+// SC2720 PMIC LDO_VIBR Control Register (0x40608e00)
+// Disassembled directly from official MOCOR kernel.bin @ 0x80be704c (analog_phy.c):
+//   "Vibrator vlaue  = %d V,POWER_ON!!!!!!!!!!!!!!!"
+//   "Vibrator vlaue  = %d,POWER_DOWN!!!!!!!!!!!!!!!"
+// Register Bit Layout:
+//   Bits [2:0] : LDO output voltage level (0..7 -> 2.8V .. 3.5V)
+//   Bit  [8]   : LDO_VIBR_PD (0 = Power ON, 1 = Power Down / Disable)
+//   Bit  [9]   : SLP_LDOVIBR_PD_EN (0 = Active, 1 = Sleep Power Down)
+#define PMIC_LDO_VIBR_REG 0x40608e00
 
-// Set GPIO pin state (off=0: DATA, off=4: DMSK, off=8: DIR, off=0x28: INEN)
-static int gpio_pin_set(unsigned id, unsigned off, int state) {
-	uint32_t addr, tmp, shl = id & 0xf;
-	if (id >= 0x80) return -1;
-	addr = GPIO_BASE + ((id >> 4) << 7);
-	addr += off;
-	tmp = *(volatile uint32_t*)addr;
-	if (state) tmp |= 1u << shl;
-	else tmp &= ~(1u << shl);
-	*(volatile uint32_t*)addr = tmp;
-	return 0;
-}
-
-// Hardware mapping for Vibrator Motor on UMS9117 / TA-1480:
-// 1. APB GPIO 45 (Bank 2, Bit 13 @ 0x40280100) -> PROD ID 5 in kernel.bin
-// 2. SC2720 PMIC Motor LDO & current regulator: 0x406081b8 / 0x40608180
-#define VIB_GPIO 45
-
-static void vib_gpio_init(void) {
-	gpio_pin_set(VIB_GPIO, 8, 1);    // DIR = output
-	gpio_pin_set(VIB_GPIO, 4, 1);    // DMSK = enable
-	gpio_pin_set(VIB_GPIO, 0x28, 0); // INEN = disabled
-	gpio_pin_set(VIB_GPIO, 0, 0);    // Start LOW
-}
-
-static void vib_gpio_set(int state) {
-	gpio_pin_set(VIB_GPIO, 0, state ? 1 : 0);
-}
-
-// SC2720 PMIC Vibrator Driver (reverse engineered from kernel.bin @ 0xbdf150)
 static void pmic_vib_set(int enable, int level) {
-	if (level < 0) level = 0;
-	if (level > 15) level = 15;
-	uint32_t val8 = (level << 4) | 0x0f;
-
 	if (enable) {
-		// Enable channels on 0x406081b8, 0x406081bc, 0x406081c0
-		adi_write(0x406081b8, (adi_read(0x406081b8) & ~0x3f) | 0x19);
-		adi_write(0x406081bc, (adi_read(0x406081bc) & ~0x3f) | 0x19);
-		adi_write(0x406081c0, (adi_read(0x406081c0) & ~0x3f) | 0x19);
-		// Set drive levels on 0x40608188, 0x4060818c, 0x4060819c
-		adi_write(0x40608188, (val8 << 8) | 0xff);
-		adi_write(0x4060818c, (val8 << 8) | 0xff);
-		adi_write(0x4060819c, (val8 << 8) | 0xff);
-		// Enable master power bits on 0x40608180
-		adi_write(0x40608180, adi_read(0x40608180) | 0x0111);
+		if (level < 0) level = 0;
+		if (level > 7) level = 7;
+		uint32_t val = adi_read(PMIC_LDO_VIBR_REG);
+		// Set voltage level in bits [2:0] (0 = 2.8V, 7 = 3.5V max rumble)
+		val = (val & ~0x7) | (level & 0x7);
+		// Clear bit 8 (LDO_VIBR_PD) and bit 9 (SLP_LDOVIBR_PD_EN) -> POWER ON!
+		val &= ~0x300;
+		adi_write(PMIC_LDO_VIBR_REG, val);
 	} else {
-		// Clear master power bits on 0x40608180
-		adi_write(0x40608180, adi_read(0x40608180) & ~0x0111);
-		// Clear channels
-		adi_write(0x406081b8, adi_read(0x406081b8) & ~0x3f);
-		adi_write(0x406081bc, adi_read(0x406081bc) & ~0x3f);
-		adi_write(0x406081c0, adi_read(0x406081c0) & ~0x3f);
+		uint32_t val = adi_read(PMIC_LDO_VIBR_REG);
+		// Set bit 8 and bit 9 -> POWER DOWN!
+		val |= 0x300;
+		adi_write(PMIC_LDO_VIBR_REG, val);
 	}
 }
 
-// Master Vibrator Enable (drives both PMIC LDO and AP GPIO 45)
+// Master Vibrator Enable (controls SC2720 PMIC LDO_VIBR)
 static void haptics_set(int state, int level) {
 	pmic_vib_set(state, level);
-	vib_gpio_set(state);
 }
 
 static void haptics_pulse(int duration_ms, int level) {
@@ -229,12 +198,12 @@ static void draw_haptics_dashboard(uint16_t *fb, unsigned w, unsigned h, unsigne
 		draw_rect(fb, w, h, 4, 24, w - 8, 48, motor_on ? 0x07E0 : 0xFFE0);
 		draw_text_xy(fb, w, h, 8, 28, status_msg, motor_on ? 0x07E0 : 0xFFFF, 0x0000, 1);
 		char buf[32];
-		snprintf(buf, sizeof(buf), "Vib Level: %d/15", level);
+		snprintf(buf, sizeof(buf), "Vib Level: %d/7 (%d.%dV)", level, (28 + level) / 10, (28 + level) % 10);
 		draw_text_xy(fb, w, h, 8, 48, buf, 0xCE79, 0x0000, 1);
 
 		draw_text_xy(fb, w, h, 6, 78, "BATTERY REQUIRED!", 0xF800, bg_color, 1);
-		draw_text_xy(fb, w, h, 6, 94, "PMIC: 0x406081b8", 0x07FF, bg_color, 1);
-		draw_text_xy(fb, w, h, 6, 110, "GPIO: Pin 45 (B2)", 0xFFFF, bg_color, 1);
+		draw_text_xy(fb, w, h, 6, 94, "PMIC: 0x40608e00", 0x07FF, bg_color, 1);
+		draw_text_xy(fb, w, h, 6, 110, "LDO_VIBR (2.8-3.5V)", 0xFFFF, bg_color, 1);
 		draw_text_xy(fb, w, h, 6, 126, "Hold END to exit", 0x8410, bg_color, 1);
 
 		draw_fill_rect(fb, w, h, 0, h - 16, w, 16, 0x0010);
@@ -250,13 +219,13 @@ static void draw_haptics_dashboard(uint16_t *fb, unsigned w, unsigned h, unsigne
 	draw_text_xy(fb, w, h, (w - 24 * 8) / 2, 5, "NOKIA 2660 HAPTICS LAB", 0x07E0, 0x0010, 1);
 
 	// Subtitle
-	draw_text_xy(fb, w, h, 14, 30, "TA-1480 | ERM Motor & PMIC Driver", 0xCE79, bg_color, 1);
+	draw_text_xy(fb, w, h, 14, 30, "TA-1480 | SC2720 PMIC LDO_VIBR (0x40608e00)", 0xCE79, bg_color, 1);
 
 	// Card 1: Battery Warning Banner (46..76)
 	draw_fill_rect(fb, w, h, 10, 46, w - 20, 30, 0x3000);
 	draw_rect(fb, w, h, 10, 46, w - 20, 30, 0xF800);
 	draw_text_xy(fb, w, h, 14, 50, "! BATTERY MUST BE INSERTED !", 0xF800, 0x3000, 1);
-	draw_text_xy(fb, w, h, 14, 64, "Motor requires VBAT (~3.8V) power", 0xFFFF, 0x3000, 1);
+	draw_text_xy(fb, w, h, 14, 64, "ERM motor is powered from VBAT contacts (~3.8V)", 0xFFFF, 0x3000, 1);
 
 	// Card 2: Interactive Active Status Card (80..154)
 	draw_fill_rect(fb, w, h, 10, 80, w - 20, 74, 0x0000);
@@ -266,15 +235,15 @@ static void draw_haptics_dashboard(uint16_t *fb, unsigned w, unsigned h, unsigne
 	draw_text_xy(fb, w, h, 18, 88, "MOTOR STATUS:", 0x8410, 0x0000, 1);
 	draw_text_xy(fb, w, h, 18, 106, status_msg, motor_on ? 0x07E0 : 0xFFE0, 0x0000, 1);
 
-	// Intensity Progress Bar
+	// Intensity Progress Bar (0..7)
 	char vbuf[32];
-	snprintf(vbuf, sizeof(vbuf), "Intensity: [%2d/15] ", level);
+	snprintf(vbuf, sizeof(vbuf), "Intensity: [%d/7] %d.%dV", level, (28 + level) / 10, (28 + level) % 10);
 	draw_text_xy(fb, w, h, 18, 128, vbuf, 0xCE79, 0x0000, 1);
-	unsigned bar_x = 18 + 17 * 8;
+	unsigned bar_x = 18 + 19 * 8;
 	unsigned bar_y = 130;
 	unsigned bar_w = 48;
 	draw_rect(fb, w, h, bar_x, bar_y, bar_w, 12, 0xFFFF);
-	unsigned fill_w = (level * (bar_w - 4)) / 15;
+	unsigned fill_w = (level * (bar_w - 4)) / 7;
 	if (fill_w > 0) {
 		draw_fill_rect(fb, w, h, bar_x + 2, bar_y + 2, fill_w, 8, 0x07E0);
 	}
@@ -289,7 +258,7 @@ static void draw_haptics_dashboard(uint16_t *fb, unsigned w, unsigned h, unsigne
 	draw_text_xy(fb, w, h, 16, 214, "[5] Rumble 750ms  [6] Heartbeat", 0x07E0, 0x0000, 1);
 	draw_text_xy(fb, w, h, 16, 230, "[7] Continuous ON [8] Stop Motor", 0xFFE0, 0x0000, 1);
 	draw_text_xy(fb, w, h, 16, 246, "[9] SOS Morse     [0] Heavy Blast", 0x07FF, 0x0000, 1);
-	draw_text_xy(fb, w, h, 16, 262, "[Vol+/-] Lvl 0..15 [*] Mute/Off", 0xCE79, 0x0000, 1);
+	draw_text_xy(fb, w, h, 16, 262, "[Vol+/-] Lvl 0..7  [*] Stop Motor", 0xCE79, 0x0000, 1);
 
 	// Footer bar
 	draw_fill_rect(fb, w, h, 0, h - 22, w, 22, 0x0010);
@@ -307,14 +276,12 @@ void test_haptics(void) {
 	sys_framebuffer(framebuf);
 	sys_start();
 
-	// Initialize GPIO 45 and PMIC vibrator registers to clean idle
-	vib_gpio_init();
-	int level = 12; // default strong level
+	int level = 7; // Default max rumble (3.5V)
 	haptics_set(0, level);
 
 	printf("\n======================================================\n");
 	printf("  NOKIA 2660 FLIP (TA-1480) - HAPTICS & VIBRATOR MOTOR\n");
-	printf("  >>> SC2720 PMIC (0x406081b8) & APB GPIO PIN 45 <<<\n");
+	printf("  >>> SC2720 PMIC LDO_VIBR (0x40608e00) <<<\n");
 	printf("======================================================\n");
 	printf("  IMPORTANT: Battery MUST be inserted in phone for motor power!\n");
 	printf("  LCD: %ux%u | Volatile DRAM execution active\n", w, h);
@@ -324,7 +291,7 @@ void test_haptics(void) {
 	printf("  [7] Continuous Motor ON   [8] Stop Motor\n");
 	printf("  [9] Emergency SOS Morse Code Vibration\n");
 	printf("  [0] Heavy Blast (1.0 s)\n");
-	printf("  [Vol+/Vol-] Adjust Vibration Intensity (0..15)\n");
+	printf("  [Vol+/Vol-] Adjust Vibration Intensity (0..7 -> 2.8V..3.5V)\n");
 	printf("  [*] Stop All Vibration    [Hold END key] Exit payload\n\n");
 
 	char status_msg[48] = "Vibrator: Idle (Ready)";
@@ -449,19 +416,19 @@ void test_haptics(void) {
 					break;
 
 				case 0x24: // Volume Up -> Increase intensity
-					if (level < 15) level++;
+					if (level < 7) level++;
 					haptics_pulse(30, level); // feedback tick
 					if (motor_active) haptics_set(1, level);
-					snprintf(status_msg, sizeof(status_msg), "Intensity: %d/15", level);
-					printf("  [Config] Haptic intensity set to %d/15\n", level);
+					snprintf(status_msg, sizeof(status_msg), "Intensity: %d/7 (%d.%dV)", level, (28 + level) / 10, (28 + level) % 10);
+					printf("  [Config] Haptic intensity set to %d/7 (%d.%dV)\n", level, (28 + level) / 10, (28 + level) % 10);
 					break;
 
 				case 0x25: // Volume Down -> Decrease intensity
 					if (level > 0) level--;
 					if (level > 0) haptics_pulse(30, level); // feedback tick
 					if (motor_active) haptics_set(1, level);
-					snprintf(status_msg, sizeof(status_msg), "Intensity: %d/15", level);
-					printf("  [Config] Haptic intensity set to %d/15\n", level);
+					snprintf(status_msg, sizeof(status_msg), "Intensity: %d/7 (%d.%dV)", level, (28 + level) / 10, (28 + level) % 10);
+					printf("  [Config] Haptic intensity set to %d/7 (%d.%dV)\n", level, (28 + level) / 10, (28 + level) % 10);
 					break;
 
 				case 0x2a: // '*' -> Stop all

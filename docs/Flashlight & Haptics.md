@@ -120,75 +120,67 @@ void flashlight_morse_sos(int level) {
 ## 3. Haptic Vibration Motor Subsystem
 
 ### Hardware Architecture
-The Nokia 2660 Flip uses an Eccentric Rotating Mass (ERM) vibration motor driven jointly by the Application Processor GPIO bus and the SC2720 PMIC:
+The Nokia 2660 Flip contains an Eccentric Rotating Mass (ERM) vibration motor powered and regulated directly by a dedicated Low-Dropout (LDO) regulator inside the **Spreadtrum / Unisoc SC2720 PMIC**:
 
-1. **AP GPIO 45 (`0x40280100`, Bank 2, Bit 13):**
-   - Registered as `GPIO_PROD_ID = 5` in `kernel.bin` (`SetVibrator_Timer`).
-   - Hardware gate line enabling the motor drive transistor.
-2. **SC2720 PMIC Motor LDO (`0x406081b8` / `0x40608180`):**
-   - Disassembly at `0xbdf150` in `kernel.bin` configures channels `0x406081b8`, `0x406081bc`, and `0x406081c0` with intensity levels in `0x40608188`, `0x4060818c`, `0x4060819c`.
-   - Master power gate controlled via `0x40608180`.
+* **PMIC Register:** **`0x40608e00`** (`PMIC_LDO_VIBR_REG`)
+* **Firmware Reference:** Disassembly of MOCOR `kernel.bin` at `0x80be704c` (`analog_phy.c`):
+  - `0x80be7050: ldr r5, =0x40608e00` -> PMIC LDO_VIBR address
+  - `0x80be70a8: add r1, r4, #0x1c` -> Calculates voltage: `28 + level` (2.8V to 3.5V)
+  - `0x80be70ac: add r0, pc, #0x170` -> Prints `"Vibrator vlaue  = %d V,POWER_ON!!!!!!!!!!!!!!!"`
+  - `0x80be70e0: add r0, pc, #0x16c` -> Prints `"Vibrator vlaue  = %d,POWER_DOWN!!!!!!!!!!!!!!!"`
+
+### Register Bit Layout: `PMIC_LDO_VIBR_REG` (`0x40608e00`)
+
+| Bits | Field | Description |
+|:---:|:---|:---|
+| **[2:0]** | `LDO_VIBR_V` | **LDO Output Voltage / Strength:** `0` (2.8V) to `7` (3.5V max rumble) |
+| **[7:3]** | `RESERVED` | Preserved during read-modify-write |
+| **[8]** | `LDO_VIBR_PD` | **Power-Down Control:** `0` = Power ON (active), `1` = Power Down (off) |
+| **[9]** | `SLP_LDOVIBR_PD_EN` | **Sleep Power-Down Enable:** `0` = Active, `1` = Sleep Power Down |
+
+> [!NOTE]
+> Registers `0x40608180`, `0x40608188`, and `0x406081b8` belong to the **LCD Backlight Current Sink / RGB Driver**. Writing to them modulates the display backlight rather than the vibrator motor. The dedicated ERM motor regulator is exclusively controlled at `0x40608e00`.
 
 ### CRITICAL: Battery Power Requirement (`VBAT`)
 Unlike the low-power flashlight LED which can operate off the 5V USB bus (`VBUS`), the ERM vibration motor draws high peak current (~150mA to 300mA) and is wired directly to **`VBAT` (the physical battery spring terminals)**.
 
 > [!IMPORTANT]
 > When executing bare-metal payloads over USB with the battery removed, the motor receives **0.0 Volts**.
-> **To test vibration:** Start the BootROM connection with the battery OUT. Once Stage 1 finishes and the payload starts running in DRAM, **pop the battery into the phone** while USB remains connected!
+> **To test vibration:**
+> * **Method A (Recommended):** Put the battery inside the phone while powered OFF, hold `*` (Asterisk), and plug in the USB cable to enter BootROM mode.
+> * **Method B:** If the phone boots normally when holding `*` with battery in, start with battery OUT, hold `*`, plug in USB, and once the DRAM payload is executing and the LCD lights up, gently slide the battery into place.
 
 ### Bare-Metal C Driver
 ```c
-#define GPIO_BASE 0x40280000
-#define VIB_GPIO  45
+#define PMIC_LDO_VIBR_REG 0x40608e00
 
-// Initialize AP GPIO 45 as Output
-void vib_gpio_init(void) {
-    // Bank 2 (45 / 16 = 2) offset = 2 * 0x80 = 0x100; Bit = 45 % 16 = 13
-    uint32_t bank_offset = (45 >> 4) * 0x80;
-    uint32_t pin_mask    = 1u << (45 & 0xF);
+uint32_t adi_read(uint32_t addr);
+void adi_write(uint32_t addr, uint32_t val);
 
-    *(volatile uint32_t *)(GPIO_BASE + bank_offset + 0x08) |= pin_mask; // DIR = Out
-    *(volatile uint32_t *)(GPIO_BASE + bank_offset + 0x04) |= pin_mask; // DMSK = En
-    *(volatile uint32_t *)(GPIO_BASE + bank_offset + 0x00) &= ~pin_mask; // Start Low
-}
-
-void vib_gpio_set(int state) {
-    uint32_t bank_offset = (45 >> 4) * 0x80;
-    uint32_t pin_mask    = 1u << (45 & 0xF);
-    volatile uint32_t *reg = (volatile uint32_t *)(GPIO_BASE + bank_offset + 0x00);
-    if (state) *reg |= pin_mask;
-    else *reg &= ~pin_mask;
-}
-
-// SC2720 PMIC Motor Driver
+// Enable or disable vibrator motor; level = 0..7 (2.8V .. 3.5V)
 void pmic_vib_set(int enable, int level) {
-    if (level < 0) level = 0;
-    if (level > 15) level = 15;
-    uint32_t val8 = (level << 4) | 0x0f;
-
     if (enable) {
-        adi_write(0x406081b8, (adi_read(0x406081b8) & ~0x3f) | 0x19);
-        adi_write(0x406081bc, (adi_read(0x406081bc) & ~0x3f) | 0x19);
-        adi_write(0x406081c0, (adi_read(0x406081c0) & ~0x3f) | 0x19);
-        adi_write(0x40608188, (val8 << 8) | 0xff);
-        adi_write(0x4060818c, (val8 << 8) | 0xff);
-        adi_write(0x4060819c, (val8 << 8) | 0xff);
-        adi_write(0x40608180, adi_read(0x40608180) | 0x0111);
+        if (level < 0) level = 0;
+        if (level > 7) level = 7;
+        uint32_t val = adi_read(PMIC_LDO_VIBR_REG);
+        // Configure voltage level in bits [2:0]
+        val = (val & ~0x7) | (level & 0x7);
+        // Clear bit 8 (LDO_VIBR_PD) and bit 9 (SLP_LDOVIBR_PD_EN) to POWER ON
+        val &= ~0x300;
+        adi_write(PMIC_LDO_VIBR_REG, val);
     } else {
-        adi_write(0x40608180, adi_read(0x40608180) & ~0x0111);
-        adi_write(0x406081b8, adi_read(0x406081b8) & ~0x3f);
-        adi_write(0x406081bc, adi_read(0x406081bc) & ~0x3f);
-        adi_write(0x406081c0, adi_read(0x406081c0) & ~0x3f);
+        uint32_t val = adi_read(PMIC_LDO_VIBR_REG);
+        // Set bit 8 and bit 9 to POWER DOWN
+        val |= 0x300;
+        adi_write(PMIC_LDO_VIBR_REG, val);
     }
 }
 
 // Master Haptic Pulse
 void haptics_pulse(uint32_t duration_ms, int level) {
     pmic_vib_set(1, level);
-    vib_gpio_set(1);
     sys_wait_ms(duration_ms);
     pmic_vib_set(0, level);
-    vib_gpio_set(0);
 }
 ```
 

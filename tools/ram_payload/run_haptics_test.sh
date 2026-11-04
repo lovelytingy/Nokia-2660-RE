@@ -51,10 +51,15 @@ chmod +x "${SPD_DUMP}" "${LIBC_SERVER}"
 
 echo "[*] Preparing bare-metal RAM injection..."
 echo "    INSTRUCTIONS:"
-echo "    1. Disconnect phone from USB and ensure battery is OUT."
-echo "    2. Press the red Power / End key 2-3 times while unplugged (drains residual capacitor charge)."
-echo "    3. Press and firmly HOLD the '*' (Asterisk) key on the keypad."
-echo "    4. While holding '*', plug the USB cable into the phone and computer."
+echo "    Method A (Recommended):"
+echo "    1. Insert the battery into the phone (ensure phone is powered OFF)."
+echo "    2. Press and firmly HOLD the '*' (Asterisk) key on the keypad."
+echo "    3. While holding '*', plug the USB cable into the phone and computer."
+echo
+echo "    Method B (If device boots normal OS instead of BootROM):"
+echo "    1. Remove battery, press red Power/End 2-3 times to drain capacitors."
+echo "    2. Hold '*' and plug in USB to enter BootROM mode."
+echo "    3. Once the screen lights up with the dashboard, slide the battery into place."
 echo
 echo "[*] Waiting for phone connection in BootROM mode (120s timeout)..."
 
