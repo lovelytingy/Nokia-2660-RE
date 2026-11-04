@@ -144,12 +144,12 @@ Controls the SC2720 PMIC White LED Current Sink Driver on register **`0x40608df4
   ./tools/ram_payload/run_flashlight_test.sh cover
   ```
 
-For detailed register documentation and disassembly analysis, see [`docs/Flashlight & Haptics.md`](file:///Users/lovelytingy/Documents/Personal-Projects/Nokia-2660-RE/docs/Flashlight%20%26%20Haptics.md).
+For detailed register documentation and disassembly analysis, see [`docs/Flashlight.md`](file:///Users/lovelytingy/Documents/Personal-Projects/Nokia-2660-RE/docs/Flashlight.md).
 
 ---
 
 ### 4. Haptics & Vibrator Motor Diagnostic Tool
-Drives the Eccentric Rotating Mass (ERM) vibration motor via the SC2720 PMIC motor LDO registers (`0x406081b8` / `0x40608180`) and APB GPIO Pin 45 (Bank 2, Bit 13 @ `0x40280100`):
+Drives the Eccentric Rotating Mass (ERM) vibration motor via the dedicated SC2720 PMIC `LDO_VIBR` regulator (`0x40608e00`):
 
 ```bash
 ./tools/ram_payload/run_haptics_test.sh
@@ -164,7 +164,7 @@ Drives the Eccentric Rotating Mass (ERM) vibration motor via the SC2720 PMIC mot
   - `[7]` / `[8]`: Continuous Motor ON (test bench) / Stop Motor
   - `[9]`: **SOS Morse Code Vibration** (`... --- ...`)
   - `[0]`: Heavy Blast (1.0 s)
-  - `[Vol+]` / `[Vol-]`: Adjust Vibration Intensity (0..15)
+  - `[Vol+]` / `[Vol-]`: Adjust Vibration Intensity (0..7, 2.8V to 3.5V)
 * Supports both displays:
   ```bash
   # Inner Main Screen (2.8" 240x320)
@@ -174,12 +174,12 @@ Drives the Eccentric Rotating Mass (ERM) vibration motor via the SC2720 PMIC mot
   ./tools/ram_payload/run_haptics_test.sh cover
   ```
 
-For register details, see [`docs/Flashlight & Haptics.md`](file:///Users/lovelytingy/Documents/Personal-Projects/Nokia-2660-RE/docs/Flashlight%20%26%20Haptics.md).
+For register details, see [`docs/Haptics.md`](file:///Users/lovelytingy/Documents/Personal-Projects/Nokia-2660-RE/docs/Haptics.md).
 
 ---
 
 ### 5. Speaker Audio Diagnostic Tool
-Initializes the external speaker Power Amplifier on **GPIO 31** (`0x40280080`, bit 15), testing square-wave tones, siren chirps, and the iconic Nokia Tune:
+Initializes the external Class-D speaker Power Amplifier (Awinic AW87xx) via 1-wire Mode 2 pulse sequence on **GPIO 31** (`0x40280080`, bit 15) and drives analog audio through SC2720 PMIC Line-Out (LOUT) DAC (`0x40608704` / `0x40608708` / `0x40608728`):
 
 ```bash
 ./tools/ram_payload/run_audio_test.sh
@@ -189,10 +189,13 @@ Initializes the external speaker Power Amplifier on **GPIO 31** (`0x40280080`, b
   - `[1]` / `[2]`: 440 Hz (Concert A) / 880 Hz tones
   - `[3]` / `[4]`: 1000 Hz reference beep / 2000 Hz high-frequency tone
   - `[5]`: **Iconic Nokia Ringtone** (*Gran Vals* 13-note melody)
-  - `[6]`: Super Mario coin sound effect
-  - `[7]`: Frequency sweep / chirp siren (300 Hz -> 2500 Hz)
+  - `[6]` / `[7]`: Super Mario coin sound / Frequency chirp sweep (300 Hz -> 2500 Hz)
+  - `[8]`: **PA Cone Click Test** (single 50µs pulse to verify voice coil / acoustic response)
+  - `[9]`: **PMIC Codec Dump** (dumps audio registers 0x40608704, 8708, 8728, 8838 to UART)
+  - `[0]`: **Continuous 1 kHz Tone** toggle (ON / OFF)
   - `[#]`: Super Mario theme intro jingle
   - `[*]`: Mute / stop all audio
+  - `[Vol+]` / `[Vol-]`: Adjust Line-Out volume gain (0..15)
   - Hold **Power / End** for ~1 second to cleanly exit.
 * Supports both displays:
   ```bash
