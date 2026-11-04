@@ -47,3 +47,8 @@ No payload in this PAC (flash-tool operations or optional slots):
 3. `EXEC_KERNEL_IMAGE.bin` — MOCOR kernel  
 4. `EXEC_USER_IMAGE.bin` — user/application image  
 5. `mmi_res_240X320_MH.bin` — UI resources (240×320)  
+
+## Needed
+
+- On-device partition table dump
+- Page/block geometry from NAND ID strings in FDL2/boot0

@@ -1,2 +1,3 @@
+# Python 3.8+
 # Optional helpers for local firmware triage
 capstone>=5.0.0

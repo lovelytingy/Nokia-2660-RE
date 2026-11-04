@@ -52,4 +52,4 @@ BootROM selects:
 - **Download path** → FDL1/FDL2 (host-supplied, DHTB-wrapped), or
 - **NAND path** → boot0 → verified boot1 → …
 
-See [Boot Process](Boot%20Process.md).
+See [Boot Process](boot-process.md).

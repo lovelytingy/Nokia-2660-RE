@@ -82,6 +82,7 @@ firmware/dumps/**/*.bin
 !firmware/dumps/**/*.md
 !firmware/dumps/**/*.csv
 
-
-# just for fun no attachment to this project
+# Fun / side projects (not part of this repo)
 /fpdoom/
+/FPLinux/
+/fplinux/

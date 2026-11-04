@@ -37,7 +37,7 @@ Firmware details and hashes: [`firmware/readme.md`](firmware/readme.md).
 
 | Area | Ideas |
 |------|--------|
-| Docs | Fill empty pages under `docs/` (`hardware`, `usb`, `Memory Map`, …) |
+| Docs | Fill empty pages under `docs/` (`hardware`, `usb-enumeration`, `memory-map`, …) |
 | Device | USB descriptors in download vs normal mode; hidden codes; UART pins |
 | Firmware | String notes on `boot1`, kernel/user images; partition map confirmation |
 | Tools | Improve `tools/extract_pac.py`; add helpers for DHTB / strings / FDL |
@@ -58,16 +58,15 @@ Please keep in mind:
 ```text
 docs/        findings (human-readable)
 firmware/    PAC notes + extracted manifests (binaries gitignored)
-tools/       scripts contributors can run
+tools/       scripts, helpers, and bare-metal RAM payloads
 ghidra/      import notes + optional scripts
 captures/    how to store USB/UART/photos (raw files usually ignored)
-scripts/     one-off helper scripts
 ```
 
 ## Analysis tips
 
 1. Extract the PAC; trust `manifest.csv` hashes.
-2. Loaders use a `DHTB` header (`0x4B4` bytes) then Thumb code — see `docs/Boot Process.md`.
+2. Loaders use a `DHTB` header (`0x4B4` bytes) then Thumb code — see `docs/boot-process.md`.
 3. Prefer load addresses from `UMS9117.xml` (FDL1 `0x6200`, FDL2 `0x80100000`).
 4. Ghidra: import stripped payloads; keep `.gpr` projects local (gitignored).
 

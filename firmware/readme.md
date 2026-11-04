@@ -56,7 +56,7 @@ NV item basename: `FF618V01` / `HMD_SKU3` / `QVGA` / **`MH_13ARA80IN00`** (match
 
 Inventory + full per-file SHA-256: `extracted/v23_update_Nokia_2660/manifest.csv`  
 Flash-tool scheme: `extracted/v23_update_Nokia_2660/UMS9117.xml`  
-Human summary: [`docs/Flash Layout.md`](../docs/Flash%20Layout.md), [`docs/firmware.md`](../docs/firmware.md)
+Human summary: [`docs/flash-layout.md`](../docs/flash-layout.md)
 
 ### Notes
 

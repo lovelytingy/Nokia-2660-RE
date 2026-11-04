@@ -3,8 +3,8 @@
 This document details the reverse-engineered hardware architecture, register maps, power requirements, and bare-metal drivers for the **Eccentric Rotating Mass (ERM) Haptic Vibration Motor** on the **Nokia 2660 Flip (Model TA-1480, Unisoc UMS9117 / T107 SoC, SC2720 PMIC)**.
 
 > [!NOTE]
-> For the **Rear Flashlight / Torch LED** (`0x40608df4`), see [`docs/Flashlight.md`](/docs/Flashlight.md).  
-> For the **External Speaker PA & Audio Codec**, see [`docs/Audio Subsystem.md`](/docs/Audio%20Subsystem.md).
+> For the **Rear Flashlight / Torch LED** (`0x40608df4`), see [`docs/flashlight.md`](/docs/flashlight.md).  
+> For the **External Speaker PA & Audio Codec**, see [`docs/audio-subsystem.md`](/docs/audio-subsystem.md).
 
 ---
 

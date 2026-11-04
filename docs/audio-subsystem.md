@@ -3,8 +3,8 @@
 This document details the reverse-engineered hardware architecture, register maps, and bare-metal control methods for the **External Speaker Power Amplifier (PA)**, **SC2720 PMIC Line-Out Audio Codec**, and **Voice Band Codec (VBC)** on the **Nokia 2660 Flip (Model TA-1480, Unisoc UMS9117 / T107 SoC, SC2720 PMIC)**.
 
 > [!NOTE]
-> For the **Rear Flashlight / Torch LED** (`0x40608df4`), see [`docs/Flashlight.md`](/docs/Flashlight.md).  
-> For the **Haptic Vibration Motor** (`0x40608e00`), see [`docs/Haptics.md`](/docs/Haptics.md).
+> For the **Rear Flashlight / Torch LED** (`0x40608df4`), see [`docs/flashlight.md`](/docs/flashlight.md).  
+> For the **Haptic Vibration Motor** (`0x40608e00`), see [`docs/haptics.md`](/docs/haptics.md).
 
 > [!WARNING]
 > **Hardware Status:** The audio test program (`audio_test.bin`) is currently **not outputting audio via the physical speaker**. While the diagnostic payload, PMIC clock un-gating, and UI function properly in volatile DRAM, sound output through the physical loudspeaker is not currently working and is under active investigation.

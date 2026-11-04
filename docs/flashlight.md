@@ -3,8 +3,8 @@
 This document details the reverse-engineered hardware architecture, register maps, and bare-metal drivers for the **Rear Flashlight / Torch LED** on the **Nokia 2660 Flip (Model TA-1480, Unisoc UMS9117 / T107 SoC, SC2720 PMIC)**.
 
 > [!NOTE]
-> For the **Haptic Vibration Motor** (`0x40608e00`), see the dedicated reference [`docs/Haptics.md`](/docs/Haptics.md).  
-> For the **External Speaker PA & Audio Codec**, see [`docs/Audio Subsystem.md`](/docs/Audio%20Subsystem.md).
+> For the **Haptic Vibration Motor** (`0x40608e00`), see the dedicated reference [`docs/haptics.md`](/docs/haptics.md).  
+> For the **External Speaker PA & Audio Codec**, see [`docs/audio-subsystem.md`](/docs/audio-subsystem.md).
 
 ---
 

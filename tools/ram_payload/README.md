@@ -113,7 +113,7 @@ Powers on the display and continuously scans both the APB Keypad Matrix (`0x4025
   ./tools/ram_payload/run_keypad_test.sh cover
   ```
 
-For detailed register maps and key decoding formulas, see [`docs/Keypad Matrix.md`](/docs/Keypad%20Matrix.md).
+For detailed register maps and key decoding formulas, see [`docs/keypad-matrix.md`](/docs/keypad-matrix.md).
 
 ---
 
@@ -144,7 +144,7 @@ Controls the SC2720 PMIC White LED Current Sink Driver on register **`0x40608df4
   ./tools/ram_payload/run_flashlight_test.sh cover
   ```
 
-For detailed register documentation and disassembly analysis, see [`docs/Flashlight.md`](/docs/Flashlight.md).
+For detailed register documentation and disassembly analysis, see [`docs/flashlight.md`](/docs/flashlight.md).
 
 ---
 
@@ -174,7 +174,7 @@ Drives the Eccentric Rotating Mass (ERM) vibration motor via the dedicated SC272
   ./tools/ram_payload/run_haptics_test.sh cover
   ```
 
-For register details, see [`docs/Haptics.md`](/docs/Haptics.md).
+For register details, see [`docs/haptics.md`](/docs/haptics.md).
 
 ---
 
@@ -209,7 +209,7 @@ Initializes the external Class-D speaker Power Amplifier (Awinic AW87xx) via APB
   ./tools/ram_payload/run_audio_test.sh cover
   ```
 
-For detailed register documentation, see [`docs/Audio Subsystem.md`](/docs/Audio%20Subsystem.md).
+For detailed register documentation, see [`docs/audio-subsystem.md`](/docs/audio-subsystem.md).
 
 ---
 

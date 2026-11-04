@@ -28,11 +28,11 @@ Full device page: [docs/device.md](docs/device.md).
 - [x] ✅ Identify device / USB / chipset
 - [x] ✅ Obtain MOCOR PAC sample (NV name matches Indian NDT `MH_13ARA80IN00`)
 - [x] ✅ Identify firmware format (`BP_R1.0.0` PAC)
-- [x] ✅ Draft boot/download chain (FDL1 → FDL2; boot0 → boot1) — [docs/Boot Process.md](docs/Boot%20Process.md)
+- [x] ✅ Draft boot/download chain (FDL1 → FDL2; boot0 → boot1) — [docs/boot-process.md](docs/boot-process.md)
 - [x] ✅ Version-matched TA-1480 dump (`10.02.17.00` / `MOCOR_...W22.04.6_P4_Release`) — [firmware/dumps/ta1480_10.02.17.00](firmware/dumps/ta1480_10.02.17.00)
 - [x] ✅ Reverse-engineer hardware peripherals (Keypad matrix, GC9307/GC9104 SPI LCDs, PMIC SC2720 flashlight/vibrator, Audio PA)
-- [x] ✅ Find application loader architecture (monolithic native C in `user.bin`; no dynamic J2ME/MRE loader) — [docs/Application Layer.md](docs/Application%20Layer.md)
-- [x] ✅ Execute custom code safely (volatile DRAM payloads via FDL1; zero NAND flash writes) — [docs/Custom Code Execution.md](docs/Custom%20Code%20Execution.md)
+- [x] ✅ Find application loader architecture (monolithic native C in `user.bin`; no dynamic J2ME/MRE loader) — [docs/application-layer.md](docs/application-layer.md)
+- [x] ✅ Execute custom code safely (volatile DRAM payloads via FDL1; zero NAND flash writes) — [docs/custom-code-execution.md](docs/custom-code-execution.md)
 - [ ] Modification of MOCOR RTOS framework (`user.bin` / `kernel.bin`)
 - [ ] Untethered execution: Running custom code from NAND flash (custom bootloader / custom firmware)
 
@@ -49,10 +49,9 @@ Full device page: [docs/device.md](docs/device.md).
 |------|-------------------|
 | [`docs/`](docs/) | Human findings (device, boot, flash, USB, hardware, …) |
 | [`firmware/`](firmware/) | PAC metadata + **extracted manifests** (binaries are gitignored) |
-| [`tools/`](tools/) | Scripts (`extract_pac.py`, …) |
+| [`tools/`](tools/) | Scripts (`extract_pac.py`, …) and bare-metal RAM payloads |
 | [`ghidra/`](ghidra/) | How to import; local Ghidra DBs are gitignored |
 | [`captures/`](captures/) | Guidance for USB/UART/photos |
-| [`scripts/`](scripts/) | One-off helpers |
 
 ## Quick start
 
@@ -69,16 +68,16 @@ python3 tools/extract_pac.py firmware/v23_update_Nokia_2660.pac
 Useful reading order:
 
 1. [docs/device.md](docs/device.md) — reference phone (`*#0000#`)  
-2. [docs/community_findings.md](docs/community_findings.md) — boot key, dialer codes & safe dump instructions  
+2. [docs/community-findings.md](docs/community-findings.md) — boot key, dialer codes & safe dump instructions  
 3. [firmware/readme.md](firmware/readme.md) — sample hashes + extract  
-4. [docs/firmware.md](docs/firmware.md) / [docs/Flash Layout.md](docs/Flash%20Layout.md)  
-5. [docs/Boot Process.md](docs/Boot%20Process.md) / [docs/bootrom.md](docs/bootrom.md)  
-6. [docs/Keypad Matrix.md](docs/Keypad%20Matrix.md) — hardware keypad matrix & PMIC power button decoder  
-7. [docs/Flashlight.md](docs/Flashlight.md) — SC2720 PMIC rear torch LED (`0x40608df4`)  
-8. [docs/Haptics.md](docs/Haptics.md) — SC2720 PMIC ERM vibration motor (`0x40608e00`)  
-9. [docs/Audio Subsystem.md](docs/Audio%20Subsystem.md) — speaker PA (GPIO 31) & PMIC Line-Out / Voice Band Codec (VBC)  
-10. [docs/Application Layer.md](docs/Application%20Layer.md) — MOCOR application & window architecture  
-11. [docs/Custom Code Execution.md](docs/Custom%20Code%20Execution.md) — Bare-metal RAM payloads & homebrew execution  
+4. [firmware/readme.md](firmware/readme.md) / [docs/flash-layout.md](docs/flash-layout.md)  
+5. [docs/boot-process.md](docs/boot-process.md) / [docs/bootrom.md](docs/bootrom.md)  
+6. [docs/keypad-matrix.md](docs/keypad-matrix.md) — hardware keypad matrix & PMIC power button decoder  
+7. [docs/flashlight.md](docs/flashlight.md) — SC2720 PMIC rear torch LED (`0x40608df4`)  
+8. [docs/haptics.md](docs/haptics.md) — SC2720 PMIC ERM vibration motor (`0x40608e00`)  
+9. [docs/audio-subsystem.md](docs/audio-subsystem.md) — speaker PA (GPIO 31) & PMIC Line-Out / Voice Band Codec (VBC)  
+10. [docs/application-layer.md](docs/application-layer.md) — MOCOR application & window architecture  
+11. [docs/custom-code-execution.md](docs/custom-code-execution.md) — Bare-metal RAM payloads & homebrew execution  
 12. [ghidra/readme.md](ghidra/readme.md) — load FDL/boot0 in Ghidra  
 
 ## Tools (recommended)
