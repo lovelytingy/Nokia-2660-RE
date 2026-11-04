@@ -69,12 +69,21 @@ Each 8-bit slice represents one active matrix key:
 * **Slice 3:** Bits [31:24]
 
 Within each 8-bit slice `S`:
-$$\text{Row} = \frac{S \ \& \ \text{0x70}}{16} = (S \gg 4) \ \& \ 7$$
-$$\text{Column} = S \ \& \ 7$$
+* **Row Coordinate:**
+  ```text
+  Row = (S >> 4) & 0x7    // Bits [6:4], or (S & 0x70) / 16
+  ```
+* **Column Coordinate:**
+  ```text
+  Column = S & 0x7        // Bits [2:0]
+  ```
 
 ### Linear Matrix Index:
-MOCOR OS and FPDoom index the 64-entry (8×8) key table as:
-$$\text{Key Index} = (\text{Column} \times 8) + \text{Row}$$
+MOCOR OS and FPDoom index the 64-entry (8×8) key table linearly:
+```text
+Key Index = (Column * 8) + Row
+          = (Column << 3) | Row
+```
 
 In assembly (`kpd_phy.c` @ `0x80cd408e`):
 ```c

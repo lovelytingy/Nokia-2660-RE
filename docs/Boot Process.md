@@ -180,19 +180,19 @@ Role: The core operating system image (`kernel.bin`, partition `0x80000003`). Li
 1. **System Control Register (SCTLR)**: `mrc/mcr p15, #0, r0, c1, c0, #0` clears bit 13 (`0x2000`) to enforce low exception vectors (`0x00000000`).
 2. **Coprocessor Access (CPACR & FPEXC)**: Enables CP10 and CP11 coprocessors via `mcr p15, #0, r0, c1, c0, #2` (`0xf00000`) and executes `vmsr fpexc, r0` (`0x40000000`) to activate the hardware VFP/NEON floating-point engine.
 3. **Core Mode Stacks (`0x80a060b4`)**: Configures separate banked stack pointers across all ARM CPU execution modes:
-   * `0xd1` (FIQ mode) $\rightarrow$ sets FIQ SP
-   * `0xd2` (IRQ mode) $\rightarrow$ sets IRQ SP
-   * `0xdb` (Abort mode) $\rightarrow$ sets ABT SP
-   * `0xd7` (Undefined mode) $\rightarrow$ sets UND SP
-   * `0xdf` (System mode) $\rightarrow$ sets SYS SP
-   * `0xd3` (Supervisor mode) $\rightarrow$ restores SVC mode and initial execution stack.
+   * `0xd1` (FIQ mode) → sets FIQ SP
+   * `0xd2` (IRQ mode) → sets IRQ SP
+   * `0xdb` (Abort mode) → sets ABT SP
+   * `0xd7` (Undefined mode) → sets UND SP
+   * `0xdf` (System mode) → sets SYS SP
+   * `0xd3` (Supervisor mode) → restores SVC mode and initial execution stack.
 4. **C Runtime Scatterloader**: Branches (`b 0x814eb0e8`) to the ARM C library `__scatterload` routine (`0x814c029c`), zeroing `.bss` and copying data sections into DRAM, then hands off to `__rt_entry` (`0x814eb0d4`).
 
 ### 2. RTOS Scheduler Startup & Idle Loop
 `__rt_entry` calls `main()` at **`0x80a140e0`** (Thumb-2 mode):
 * `0x80a140e2`: `bl #0x80cbefe8` — Initializes early PLLs, clock trees, and memory timings.
 * `0x80a140e6`: `bl #0x80b12ef8` — Initializes hardware timers and board peripherals.
-* `0x80a140ea`: `bl #0x810d475c` — Enters the RTOS scheduler initialization bridge (`0x80a06984` $\rightarrow$ `0x80a0e124`).
+* `0x80a140ea`: `bl #0x810d475c` — Enters the RTOS scheduler initialization bridge (`0x80a06984` → `0x80a0e124`).
 
 At **`0x80a0e124`**, the kernel switches from Thumb to ARM mode (`adr r0, #0; bx r0`):
 ```arm
@@ -210,9 +210,9 @@ From this point onward, preemptive task scheduling is active under ThreadX / Spr
 The primary system initialization thread executes `init.c`:
 1. **Modem DSP & Coprocessor Loading (`0x80b54b92`)**:
    Reads firmware partitions from NAND into reserved modem DRAM buffers:
-   * `BML GSM DSP Code Partition` $\rightarrow$ `gsm_dsp.bin` (`NEMOL_CAT1_EVS_DM_DSP.bin`)
-   * `BML LTE DSP Code Partition` $\rightarrow$ `lte_dsp.bin` (`T117_CAT1_LTEA_DSP.bin`)
-   * `BML CM4 Code Download Partition` $\rightarrow$ `pm_cm4.bin` (Power management coprocessor)
+   * `BML GSM DSP Code Partition` → `gsm_dsp.bin` (`NEMOL_CAT1_EVS_DM_DSP.bin`)
+   * `BML LTE DSP Code Partition` → `lte_dsp.bin` (`T117_CAT1_LTEA_DSP.bin`)
+   * `BML CM4 Code Download Partition` → `pm_cm4.bin` (Power management coprocessor)
    If partition reading fails, recovery messages are triggered:
    * `Please download g_dsp image again` (`init.c:275`)
    * `Please download l_dsp image again` (`init.c:287`)

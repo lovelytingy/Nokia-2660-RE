@@ -27,7 +27,7 @@ All executable firmware images begin with the 1,204-byte Spreadtrum `DHTB` signe
 | **FDL2** | `0x80100000` | `0x80100000` | `0x80100220` | `fdl2.bin` | USB BSL Second Stage Flasher (DRAM) |
 | **BOOT0** | `0x80000001` | `0x40000000` (IRAM) | `0x40000220` | `boot0.bin` | First on-NAND stage; trains LPDDR |
 | **BOOT1** | `0x80000002` | `0x80100000` (DRAM) | `0x80100220` | `boot1.bin` | Loads and cryptographically verifies kernel |
-| **KERNEL** | `0x80000003` | **`0x80a05e00`** | **`0x80a06000`** (stub $\rightarrow$ `0x80a061f0`) | `kernel.bin` | MOCOR RTOS core, ThreadX scheduler, drivers |
+| **KERNEL** | `0x80000003` | **`0x80a05e00`** | **`0x80a06000`** (stub → `0x80a061f0`) | `kernel.bin` | MOCOR RTOS core, ThreadX scheduler, drivers |
 | **USER_IMG** | `0x80000004` | **`0x88000000`** | **`0x88479f6f`** (`MS_MMI_Main`) | `user.bin` | Application framework, MMK GUI, native apps |
 | **MMI_RES** | `0x90000004` | `0x90000004` (FS/ROM) | N/A (Resource bundle) | `mmi_res.bin` | UI theme assets, fonts, strings, bitmaps |
 | **LTE_DSP** | `0x90000005` | Modem DSP RAM | Coprocessor Vector | `lte_dsp.bin` | LTE Cat-1 Modem DSP firmware |
