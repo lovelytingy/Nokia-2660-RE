@@ -6,6 +6,9 @@ This document details the reverse-engineered hardware architecture, register map
 > For the **Rear Flashlight / Torch LED** (`0x40608df4`), see [`docs/Flashlight.md`](/docs/Flashlight.md).  
 > For the **Haptic Vibration Motor** (`0x40608e00`), see [`docs/Haptics.md`](/docs/Haptics.md).
 
+> [!WARNING]
+> **Hardware Status:** The audio test program (`audio_test.bin`) is currently **not outputting audio via the physical speaker**. While the diagnostic payload, PMIC clock un-gating, and UI function properly in volatile DRAM, sound output through the physical loudspeaker is not currently working and is under active investigation.
+
 ---
 
 ## 1. Subsystem Overview
@@ -213,6 +216,9 @@ For full PCM/WAV playback beyond square-wave generation, the UMS9117 includes a 
 ---
 
 ## 5. Interactive Loudspeaker Diagnostic Payload (`audio_test.bin`)
+
+> [!WARNING]
+> **Current Status (WIP - No Speaker Output):** The audio test program is currently **not outputting audio via the physical speaker**. While the payload successfully runs in volatile DRAM, handles screen rendering, decodes keypad input, un-gates PMIC codec clocks, and writes to the amplifier registers, audio output through the loudspeaker is currently non-functional and under active investigation.
 
 The standalone test tool [`tools/ram_payload/src/audio_test/`](/tools/ram_payload/src/audio_test/) provides a complete, interactive hardware testbench that renders a real-time status dashboard on either screen while listening for keypad input.
 

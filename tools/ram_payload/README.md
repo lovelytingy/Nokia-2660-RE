@@ -181,6 +181,9 @@ For register details, see [`docs/Haptics.md`](/docs/Haptics.md).
 ### 5. Speaker Audio Diagnostic Tool
 Initializes the external Class-D speaker Power Amplifier (Awinic AW87xx) via APB **GPIO 31** (`0x40280080`, bit 15) and un-gates the SC2720 PMIC Master Audio Codec Clock (`0x40608c08` bit 4) and Line-Out (LOUT) stage (`0x40608724` / `0x40608708`):
 
+> [!WARNING]
+> **Current Status (WIP):** The audio test program is currently **not outputting audio via the physical speaker**. While the test payload loads successfully into volatile DRAM, initializes registers, un-gates PMIC clocks, and responds to keypad inputs on both displays, audible sound output through the speaker is not currently working and remains under active investigation.
+
 ```bash
 ./tools/ram_payload/run_audio_test.sh
 ```
