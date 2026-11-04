@@ -35,33 +35,35 @@ tools/ram_payload/
 │   └── libc_server             # Native macOS host USB serial / display server
 │
 ├── data/                       # Device calibration & hardware maps (extracted from kernel.bin)
+│   ├── fdl1.bin                # First Downloader stage (32 KB, volatile DRAM bootstrap)
 │   ├── pinmap.bin              # Unisoc T107 pin multiplexing table for TA-1480
 │   └── keymap.bin              # Keypad matrix mapping table for TA-1480
 │
 ├── src/                        # Full source code for all payloads
+│   ├── common/                 # Consolidated shared headers across all payloads
+│   │   ├── font8x16.h          # Scaled 8x16 ASCII bitmap font table
+│   │   ├── elf.h               # ELF loader / pack_reloc header
+│   │   ├── string.h            # Freestanding C string utilities
+│   │   └── malloc.h            # Freestanding memory allocator header
+│   │
 │   ├── hello_world/            # C clean graphical display payload
 │   │   ├── hello_world_main.c  # RGB565 framebuffer, font renderer & display loop
-│   │   ├── font8x16.h          # Scaled 8x16 ASCII bitmap font table
 │   │   └── build.sh            # Automated compilation script (arm-none-eabi-gcc)
 │   │
 │   ├── keypad_test/            # C hardware keypad diagnostic tool
 │   │   ├── keypad_test_main.c  # Real-time matrix event listener, coordinate & PMIC EIC decoder
-│   │   ├── font8x16.h          # Scaled 8x16 ASCII bitmap font table
 │   │   └── build.sh            # Automated compilation script (arm-none-eabi-gcc)
 │   │
 │   ├── flashlight_test/        # C flashlight / rear torch diagnostic tool
 │   │   ├── flashlight_test_main.c # SC2720 PMIC 0x40608df4 driver, brightness, strobe & SOS beacon
-│   │   ├── font8x16.h          # Scaled 8x16 ASCII bitmap font table
 │   │   └── build.sh            # Automated compilation script (arm-none-eabi-gcc)
 │   │
 │   ├── haptics_test/           # C haptic vibration motor diagnostic tool
 │   │   ├── haptics_test_main.c # SC2720 PMIC 0x406081b8 & GPIO 45 motor drivers & haptic pulses
-│   │   ├── font8x16.h          # Scaled 8x16 ASCII bitmap font table
 │   │   └── build.sh            # Automated compilation script (arm-none-eabi-gcc)
 │   │
 │   ├── audio_test/             # C speaker audio diagnostic tool
 │   │   ├── audio_test_main.c   # GPIO 31 square-wave tones & melody playback
-│   │   ├── font8x16.h          # Scaled 8x16 ASCII bitmap font table
 │   │   └── build.sh            # Automated compilation script (arm-none-eabi-gcc)
 │   │
 │   └── baremetal_asm/          # Minimal ARM assembly payload

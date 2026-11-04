@@ -25,13 +25,16 @@ Full device page: [docs/device.md](docs/device.md).
 
 ## Milestones
 
-- [x] Identify device / USB / chipset
-- [x] Obtain MOCOR PAC sample (NV name matches Indian NDT `MH_13ARA80IN00`)
-- [x] Identify firmware format (`BP_R1.0.0` PAC)
-- [x] Draft boot/download chain (FDL1 → FDL2; boot0 → boot1) — [docs/Boot Process.md](docs/Boot%20Process.md)
-- [x] Version-matched TA-1480 dump (`10.02.17.00` / `MOCOR_...W22.04.6_P4_Release`) — [firmware/dumps/ta1480_10.02.17.00](firmware/dumps/ta1480_10.02.17.00)
-- [x] Find application loader (monolithic native C in `user.bin`; no dynamic J2ME/MRE loader) — [docs/Application Layer.md](docs/Application%20Layer.md)
-- [x] Execute custom code safely (volatile DRAM payload via FDL1; zero NAND flash writes) — [docs/Custom Code Execution.md](docs/Custom%20Code%20Execution.md)
+- [x] ✅ Identify device / USB / chipset
+- [x] ✅ Obtain MOCOR PAC sample (NV name matches Indian NDT `MH_13ARA80IN00`)
+- [x] ✅ Identify firmware format (`BP_R1.0.0` PAC)
+- [x] ✅ Draft boot/download chain (FDL1 → FDL2; boot0 → boot1) — [docs/Boot Process.md](docs/Boot%20Process.md)
+- [x] ✅ Version-matched TA-1480 dump (`10.02.17.00` / `MOCOR_...W22.04.6_P4_Release`) — [firmware/dumps/ta1480_10.02.17.00](firmware/dumps/ta1480_10.02.17.00)
+- [x] ✅ Reverse-engineer hardware peripherals (Keypad matrix, GC9307/GC9104 SPI LCDs, PMIC SC2720 flashlight/vibrator, Audio PA)
+- [x] ✅ Find application loader architecture (monolithic native C in `user.bin`; no dynamic J2ME/MRE loader) — [docs/Application Layer.md](docs/Application%20Layer.md)
+- [x] ✅ Execute custom code safely (volatile DRAM payloads via FDL1; zero NAND flash writes) — [docs/Custom Code Execution.md](docs/Custom%20Code%20Execution.md)
+- [ ] Modification of MOCOR RTOS framework (`user.bin` / `kernel.bin`)
+- [ ] Untethered execution: Running custom code from NAND flash (custom bootloader / custom firmware)
 
 <div align="center">
   <br>

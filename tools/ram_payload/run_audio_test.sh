@@ -7,10 +7,10 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 SPD_DUMP="${REPO_ROOT}/tools/spd_dump"
-FDL1="${REPO_ROOT}/firmware/extracted/v23_update_Nokia_2660/fdl1.bin"
+DATA_DIR="${SCRIPT_DIR}/data"
+FDL1="${DATA_DIR}/fdl1.bin"
 PAYLOAD="${SCRIPT_DIR}/bin/audio_test.bin"
 LIBC_SERVER="${SCRIPT_DIR}/bin/libc_server"
-DATA_DIR="${SCRIPT_DIR}/data"
 PINMAP="${DATA_DIR}/pinmap.bin"
 KEYMAP="${DATA_DIR}/keymap.bin"
 

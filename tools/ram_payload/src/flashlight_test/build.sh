@@ -3,6 +3,7 @@
 set -euo pipefail
 
 SRC_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+COMMON_DIR="$(cd "${SRC_DIR}/../common" && pwd)"
 BIN_DIR="$(cd "${SRC_DIR}/../../bin" && pwd)"
 VENDOR_DIR="$(cd "${SRC_DIR}/../../vendor" && pwd)"
 FPDOOM_DIR="${VENDOR_DIR}/fpdoom"
@@ -15,12 +16,12 @@ if [[ ! -d "${FPDOOM_DIR}" ]]; then
     git clone --depth 1 https://github.com/ilyakurdyukov/fpdoom.git "${FPDOOM_DIR}"
 fi
 
-# Ensure headers and font are present
+# Ensure headers and font from common directory are present
 cp "${SRC_DIR}/flashlight_test_main.c" "${FPDOOM_DIR}/fptest/main.c"
-cp "${SRC_DIR}/font8x16.h" "${FPDOOM_DIR}/fptest/font8x16.h"
-cp "${SRC_DIR}/elf.h" "${FPDOOM_DIR}/pack_reloc/elf.h"
-cp "${SRC_DIR}/string.h" "${FPDOOM_DIR}/fpdoom/include/string.h"
-cp "${SRC_DIR}/malloc.h" "${FPDOOM_DIR}/fpdoom/include/malloc.h"
+cp "${COMMON_DIR}/font8x16.h" "${FPDOOM_DIR}/fptest/font8x16.h"
+cp "${COMMON_DIR}/elf.h" "${FPDOOM_DIR}/pack_reloc/elf.h"
+cp "${COMMON_DIR}/string.h" "${FPDOOM_DIR}/fpdoom/include/string.h"
+cp "${COMMON_DIR}/malloc.h" "${FPDOOM_DIR}/fpdoom/include/malloc.h"
 
 # Fix EIC bitmask bug in upstream fpdoom syscode.c (prevents Key 8 on EIC Pin 9 from corrupting PB on Pin 1)
 python3 -c "
