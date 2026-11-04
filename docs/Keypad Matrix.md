@@ -95,45 +95,45 @@ The keymap table was extracted directly from `kernel.bin` at file offset `0xaefc
 
 | Matrix Row | Col 0 | Col 1 | Col 2 | Col 3 | Col 4 | Col 5..7 |
 |:---:|:---:|:---:|:---:|:---:|:---:|:---:|
-| **Row 0** | `*` (`0x2A`) | `0` (`0x30`) | `SIDE` (`0x1F`) | `#` (`0x23`) | `L-SOFT` (`0x08`) | — |
-| **Row 1** | `7` (`0x37`) | `3` (`0x33`) | `LEFT` (`0x06`) | `9` (`0x39`) | `R-SOFT` (`0x09`) | — |
+| **Row 0** | `*` (`0x2A`) | `0` (`0x30`) | `SHORTCUT` (`0x1F`) | `#` (`0x23`) | `L-SEL` (`0x08`) | — |
+| **Row 1** | `7` (`0x37`) | `3` (`0x33`) | `LEFT` (`0x06`) | `9` (`0x39`) | `R-SEL` (`0x09`) | — |
 | **Row 2** | `1` (`0x31`) | `2` (`0x32`) | `8` (`0x38`) | `6` (`0x36`) | `SOS` (`0x29`) | — |
 | **Row 3** | `CALL` (`0x01`)| `DOWN` (`0x05`)| `CENTER` (`0x0D`)| `RIGHT` (`0x07`)| `VOL +` (`0x24`) | — |
-| **Row 4** | `4` (`0x34`) | `5` (`0x35`) | `UP` (`0x04`) | `CAM/SOS` (`0x0E`)| `VOL -` (`0x25`) | — |
+| **Row 4** | `4` (`0x34`) | `5` (`0x35`) | `UP` (`0x04`) | `BACK` (`0x0E`) | `VOL -` (`0x25`) | — |
 | **Row 5..7**| — | — | — | — | — | — |
 
 ---
 
 ## 5. Physical Button Reference Table
 
-| Physical Button | Category | Hex Code | Col | Row | Pin Source | Notes |
+| Physical Button | Official Label | Hex Code | Col | Row | Pin Source | Description & Function |
 |:---|:---|:---:|:---:|:---:|:---|:---|
-| **0** | Numeric | `0x30` | 1 | 0 | Matrix (`0x40250000`) | Standard ASCII `'0'` |
-| **1** | Numeric | `0x31` | 0 | 2 | Matrix (`0x40250000`) | Standard ASCII `'1'` |
-| **2** | Numeric | `0x32` | 1 | 2 | Matrix (`0x40250000`) | Standard ASCII `'2'` |
-| **3** | Numeric | `0x33` | 1 | 1 | Matrix (`0x40250000`) | Standard ASCII `'3'` |
-| **4** | Numeric | `0x34` | 0 | 4 | Matrix (`0x40250000`) | Standard ASCII `'4'` |
-| **5** | Numeric | `0x35` | 1 | 4 | Matrix (`0x40250000`) | Standard ASCII `'5'` |
-| **6** | Numeric | `0x36` | 3 | 2 | Matrix (`0x40250000`) | Standard ASCII `'6'` |
-| **7** | Numeric | `0x37` | 0 | 1 | Matrix (`0x40250000`) | Standard ASCII `'7'` |
-| **8** | Numeric | `0x38` | 2 | 2 | **PMIC EIC Pin 9** (`0x40608280`) | Standard ASCII `'8'`; routed to PMIC EIC Pin 9 due to 5x5 matrix limit |
-| **9** | Numeric | `0x39` | 3 | 1 | Matrix (`0x40250000`) | Standard ASCII `'9'` |
-| **`*` (Asterisk)** | Symbol / Boot | `0x2A` | 0 | 0 | Matrix (`0x40250000`) | Held at USB plug-in for BootROM download |
-| **`#` (Hash)** | Symbol | `0x23` | 3 | 0 | Matrix (`0x40250000`) | Standard ASCII `'#'` |
-| **Green Call / Dial** | Function | `0x01` | 0 | 3 | Matrix (`0x40250000`) | `KEY_DIAL` |
-| **Red Power / End** | Power / Exit | `0x02` | — | — | **PMIC EIC Pin 1** (`0x40608280`) | Active-low; monitored via `adi_read()` |
-| **D-Pad Up** | Navigation | `0x04` | 2 | 4 | Matrix (`0x40250000`) | `KEYPAD_UP` |
-| **D-Pad Down** | Navigation | `0x05` | 1 | 3 | Matrix (`0x40250000`) | `KEYPAD_DOWN` |
-| **D-Pad Left** | Navigation | `0x06` | 2 | 1 | Matrix (`0x40250000`) | `KEYPAD_LEFT` |
-| **D-Pad Right** | Navigation | `0x07` | 3 | 3 | Matrix (`0x40250000`) | `KEYPAD_RIGHT` |
-| **D-Pad Center (OK)** | Selection | `0x0D` | 2 | 3 | Matrix (`0x40250000`) | `KEYPAD_CENTER` / Enter |
-| **Left Softkey** | Function | `0x08` | 4 | 0 | Matrix (`0x40250000`) | Left top contextual menu key |
-| **Right Softkey** | Function | `0x09` | 4 | 1 | Matrix (`0x40250000`) | Right top contextual menu key |
-| **Volume Up** | Side Rocker | `0x24` | 4 | 3 | Matrix (`0x40250000`) | Right side upper button |
-| **Volume Down** | Side Rocker | `0x25` | 4 | 4 | Matrix (`0x40250000`) | Right side lower button |
-| **Right SOS / Emergency** | Side Button | `0x0E` | 3 | 4 | Matrix (`0x40250000`) | Dedicated right side emergency call button |
-| **Down SOS / ICE** | Rear/Lower | `0x29` | 4 | 2 | Matrix (`0x40250000`) | Lower/rear emergency assistance trigger |
-| **Side Key (1F)** | Chassis | `0x1F` | 2 | 0 | Matrix (`0x40250000`) | Dedicated chassis switch |
+| **0** | Key 0 / Space | `0x30` | 1 | 0 | Matrix (`0x40250000`) | Standard numeric input / space character |
+| **1** | Key 1 | `0x31` | 0 | 2 | Matrix (`0x40250000`) | Standard numeric input / punctuation |
+| **2** | Key 2 | `0x32` | 1 | 2 | Matrix (`0x40250000`) | Standard numeric input / ABC |
+| **3** | Key 3 | `0x33` | 1 | 1 | Matrix (`0x40250000`) | Standard numeric input / DEF |
+| **4** | Key 4 | `0x34` | 0 | 4 | Matrix (`0x40250000`) | Standard numeric input / GHI |
+| **5** | Key 5 | `0x35` | 1 | 4 | Matrix (`0x40250000`) | Standard numeric input / JKL |
+| **6** | Key 6 | `0x36` | 3 | 2 | Matrix (`0x40250000`) | Standard numeric input / MNO |
+| **7** | Key 7 | `0x37` | 0 | 1 | Matrix (`0x40250000`) | Standard numeric input / PQRS |
+| **8** | Key 8 | `0x38` | 2 | 2 | **PMIC EIC Pin 9** (`0x40608280`) | Standard numeric input / TUV; routed to PMIC EIC Pin 9 |
+| **9** | Key 9 | `0x39` | 3 | 1 | Matrix (`0x40250000`) | Standard numeric input / WXYZ |
+| **`*` (Asterisk)** | Star Key | `0x2A` | 0 | 0 | Matrix (`0x40250000`) | Held at USB plug-in for BootROM download |
+| **`#` (Hash)** | Hash Key | `0x23` | 3 | 0 | Matrix (`0x40250000`) | Standard symbol / lock toggle |
+| **Green Call / Dial** | Call Key | `0x01` | 0 | 3 | Matrix (`0x40250000`) | Answers incoming calls / opens call log |
+| **Red Power / End** | Power / End Key | `0x02` | — | — | **PMIC EIC Pin 1** (`0x40608280`) | Ends calls, exits apps, powers phone on/off (active-low) |
+| **D-Pad Up** | Scroll Up | `0x04` | 2 | 4 | Matrix (`0x40250000`) | Navigates upwards |
+| **D-Pad Down** | Scroll Down | `0x05` | 1 | 3 | Matrix (`0x40250000`) | Navigates downwards |
+| **D-Pad Left** | Scroll Left | `0x06` | 2 | 1 | Matrix (`0x40250000`) | Navigates leftwards |
+| **D-Pad Right** | Scroll Right | `0x07` | 3 | 3 | Matrix (`0x40250000`) | Navigates rightwards |
+| **D-Pad Center (OK)** | Scroll Center | `0x0D` | 2 | 3 | Matrix (`0x40250000`) | Selects / confirms menu items |
+| **Left Selection Key** | L-Selection Key | `0x08` | 4 | 0 | Matrix (`0x40250000`) | Left upper menu key (Options / Menu) |
+| **Right Selection Key** | R-Selection Key | `0x09` | 4 | 1 | Matrix (`0x40250000`) | Right upper menu key (Contacts / Clear) |
+| **Shortcut Key** | Shortcut Key | `0x1F` | 2 | 0 | Matrix (`0x40250000`) | Positioned beside Call key; quick access to assigned features |
+| **Back Key** | Back Key | `0x0E` | 3 | 4 | Matrix (`0x40250000`) | Positioned beside End key; steps back through menus |
+| **Volume Up** | Volume + | `0x24` | 4 | 3 | Matrix (`0x40250000`) | Side upper rocker button |
+| **Volume Down** | Volume - | `0x25` | 4 | 4 | Matrix (`0x40250000`) | Side lower rocker button |
+| **Emergency / SOS** | SOS Key | `0x29` | 4 | 2 | Matrix (`0x40250000`) | Dedicated hardware emergency / ICE assistance button |
 
 ---
 
