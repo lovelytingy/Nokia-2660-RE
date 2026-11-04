@@ -4,12 +4,14 @@ set -euo pipefail
 
 SRC_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BIN_DIR="$(cd "${SRC_DIR}/../../bin" && pwd)"
-FPDOOM_DIR="/tmp/fpdoom"
+VENDOR_DIR="$(cd "${SRC_DIR}/../../vendor" && pwd)"
+FPDOOM_DIR="${VENDOR_DIR}/fpdoom"
 
 echo "=== Building Nokia 2660 Flip 'Hello World' Payload ==="
 
 if [[ ! -d "${FPDOOM_DIR}" ]]; then
-    echo "[*] Cloning fpdoom repository to ${FPDOOM_DIR}..."
+    echo "[*] Initializing vendored fpdoom toolchain in ${FPDOOM_DIR}..."
+    mkdir -p "${VENDOR_DIR}"
     git clone --depth 1 https://github.com/ilyakurdyukov/fpdoom.git "${FPDOOM_DIR}"
 fi
 

@@ -63,6 +63,15 @@ captures/logs/
 tmp/
 temp/
 
+# C object files and build intermediates
+*.o
+*.d
+**/obj/
+**/obj0/
+**/pack_reloc/pack_reloc
+**/fptest/fptest.bin
+**/fptest/fptest.rel
+
 # Locally built / vendor tools
 tools/spd_dump
 tools/spd_dump-macos/
@@ -75,4 +84,4 @@ firmware/dumps/**/*.bin
 
 
 # just for fun no attachment to this project
-fpdoom/
+/fpdoom/
