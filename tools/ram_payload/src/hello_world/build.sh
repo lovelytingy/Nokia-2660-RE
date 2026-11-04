@@ -20,6 +20,14 @@ cp "${SRC_DIR}/elf.h" "${FPDOOM_DIR}/pack_reloc/elf.h"
 cp "${SRC_DIR}/string.h" "${FPDOOM_DIR}/fpdoom/include/string.h"
 cp "${SRC_DIR}/malloc.h" "${FPDOOM_DIR}/fpdoom/include/malloc.h"
 
+# Fix EIC bitmask bug in upstream fpdoom syscode.c (prevents Key 8 on EIC Pin 9 from corrupting PB on Pin 1)
+python3 -c "
+path = '${FPDOOM_DIR}/ums9117/syscode.c'
+with open(path, 'r') as f: s = f.read()
+s = s.replace('return eic_read() >> EIC_PB ^ 1;', 'return (eic_read() >> EIC_PB & 1) ^ 1;')
+with open(path, 'w') as f: f.write(s)
+"
+
 echo "[*] Compiling with arm-none-eabi-gcc (Cortex-A7)..."
 make -C "${FPDOOM_DIR}/pack_reloc" CFLAGS="-I."
 make -C "${FPDOOM_DIR}/fptest" clean

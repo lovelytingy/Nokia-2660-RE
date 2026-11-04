@@ -97,7 +97,13 @@ static void draw_text_xy(uint16_t *fb, unsigned w, unsigned h, unsigned x0, unsi
 	}
 }
 
-int keypad_read_pb(void);
+int eic_read(void);
+
+// Read dedicated Power/End button from SC2720 PMIC (0x40608280, EIC Pin 1)
+// MUST strictly isolate bit 1 with (& 1) so EIC Pin 9 (Key 8) is never mistaken for Power!
+static inline int read_power_button(void) {
+	return ((eic_read() >> 1) & 1) ^ 1;
+}
 
 typedef struct {
 	char name[24];
@@ -139,12 +145,12 @@ static const char *lookup_key_info(int code, int *row, int *col) {
 	case 0x08: *col = 4; *row = 0; return "L-SOFTKEY";
 	case 0x09: *col = 4; *row = 1; return "R-SOFTKEY";
 	case 0x0d: *col = 2; *row = 3; return "CENTER / OK";
-	case 0x0e: *col = 3; *row = 4; return "CAMERA / SOS";
-	case 0x1f: *col = 2; *row = 0; return "SIDE KEY";
+	case 0x0e: *col = 3; *row = 4; return "RIGHT SOS KEY";
+	case 0x1f: *col = 2; *row = 0; return "SIDE KEY (1F)";
 	case 0x23: *col = 3; *row = 0; return "HASH (#)";
 	case 0x24: *col = 4; *row = 3; return "VOLUME UP";
 	case 0x25: *col = 4; *row = 4; return "VOLUME DOWN";
-	case 0x29: *col = 4; *row = 2; return "SOS (0x29)";
+	case 0x29: *col = 4; *row = 2; return "DOWN SOS KEY";
 	case 0x2a: *col = 0; *row = 0; return "STAR (*)";
 	case 0x30: *col = 1; *row = 0; return "KEY 0";
 	case 0x31: *col = 0; *row = 2; return "KEY 1";
@@ -241,9 +247,11 @@ static void draw_keypad_ui(uint16_t *fb, unsigned w, unsigned h, unsigned frame,
 	}
 
 	// Matrix Coords / Code
-	char coord_buf[48];
+	char coord_buf[56];
 	if (last_code == 0x02) {
 		snprintf(coord_buf, sizeof(coord_buf), "Code: 0x02 | PMIC EIC Pin 1 (Dedicated)");
+	} else if (last_code == 0x38) {
+		snprintf(coord_buf, sizeof(coord_buf), "Code: 0x38 | PMIC EIC Pin 9 (Grid C2,R2)");
 	} else if (last_code > 0) {
 		snprintf(coord_buf, sizeof(coord_buf), "Code: 0x%02X | Col: %d, Row: %d", last_code, last_col, last_row);
 	} else {
@@ -298,7 +306,7 @@ void test_display(void) {
 
 	unsigned frame = 0;
 	unsigned total_events = 0;
-	int last_pb = keypad_read_pb();
+	int last_pb = read_power_button();
 	int pb_held_frames = 0;
 
 	char last_name[24] = "NONE";
@@ -350,7 +358,7 @@ void test_display(void) {
 		}
 
 		// 2. Poll PMIC EIC Power Button
-		int cur_pb = keypad_read_pb();
+		int cur_pb = read_power_button();
 		if (cur_pb != last_pb) {
 			last_pb = cur_pb;
 			int is_down = cur_pb;
@@ -470,7 +478,7 @@ static void sdio_write_test(unsigned i) {
 
 static void test_keypad(void) {
 	int type, key;
-	int last_pb = keypad_read_pb();
+	int last_pb = read_power_button();
 
 	printf("\n======================================================\n");
 	printf("  NOKIA 2660 FLIP - KEYPAD MATRIX DIAGNOSTIC (CONSOLE)\n");
@@ -480,7 +488,7 @@ static void test_keypad(void) {
 	printf("  Press and hold red Power/End button to exit.\n\n");
 
 	for (;;) {
-		int cur_pb = keypad_read_pb();
+		int cur_pb = read_power_button();
 		if (cur_pb != last_pb) {
 			last_pb = cur_pb;
 			printf("[KEYPAD] POWER / END (PMIC EIC Bit 1) %s\n",

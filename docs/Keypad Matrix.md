@@ -116,7 +116,7 @@ The keymap table was extracted directly from `kernel.bin` at file offset `0xaefc
 | **5** | Numeric | `0x35` | 1 | 4 | Matrix (`0x40250000`) | Standard ASCII `'5'` |
 | **6** | Numeric | `0x36` | 3 | 2 | Matrix (`0x40250000`) | Standard ASCII `'6'` |
 | **7** | Numeric | `0x37` | 0 | 1 | Matrix (`0x40250000`) | Standard ASCII `'7'` |
-| **8** | Numeric | `0x38` | 2 | 2 | Matrix (`0x40250000`) | Standard ASCII `'8'` |
+| **8** | Numeric | `0x38` | 2 | 2 | **PMIC EIC Pin 9** (`0x40608280`) | Standard ASCII `'8'`; routed to PMIC EIC Pin 9 due to 5x5 matrix limit |
 | **9** | Numeric | `0x39` | 3 | 1 | Matrix (`0x40250000`) | Standard ASCII `'9'` |
 | **`*` (Asterisk)** | Symbol / Boot | `0x2A` | 0 | 0 | Matrix (`0x40250000`) | Held at USB plug-in for BootROM download |
 | **`#` (Hash)** | Symbol | `0x23` | 3 | 0 | Matrix (`0x40250000`) | Standard ASCII `'#'` |
@@ -129,27 +129,32 @@ The keymap table was extracted directly from `kernel.bin` at file offset `0xaefc
 | **D-Pad Center (OK)** | Selection | `0x0D` | 2 | 3 | Matrix (`0x40250000`) | `KEYPAD_CENTER` / Enter |
 | **Left Softkey** | Function | `0x08` | 4 | 0 | Matrix (`0x40250000`) | Left top contextual menu key |
 | **Right Softkey** | Function | `0x09` | 4 | 1 | Matrix (`0x40250000`) | Right top contextual menu key |
-| **Volume Up** | Side Rocker | `0x24` | 4 | 3 | Matrix (`0x40250000`) | Side upper button |
-| **Volume Down** | Side Rocker | `0x25` | 4 | 4 | Matrix (`0x40250000`) | Side lower button |
-| **Emergency / SOS** | Rear Button | `0x0E` / `0x29` | 3/4 | 4/2 | Matrix (`0x40250000`) | Emergency assistance trigger button |
+| **Volume Up** | Side Rocker | `0x24` | 4 | 3 | Matrix (`0x40250000`) | Right side upper button |
+| **Volume Down** | Side Rocker | `0x25` | 4 | 4 | Matrix (`0x40250000`) | Right side lower button |
+| **Right SOS / Emergency** | Side Button | `0x0E` | 3 | 4 | Matrix (`0x40250000`) | Dedicated right side emergency call button |
+| **Down SOS / ICE** | Rear/Lower | `0x29` | 4 | 2 | Matrix (`0x40250000`) | Lower/rear emergency assistance trigger |
 | **Side Key (1F)** | Chassis | `0x1F` | 2 | 0 | Matrix (`0x40250000`) | Dedicated chassis switch |
 
 ---
 
-## 6. PMIC EIC Power Button Implementation
+## 6. PMIC EIC Power Button & Key 8 Special Routing
 
-The Power / End key is handled via the SC2720 PMIC External Interrupt Controller over Spreadtrum's ADI serial bus.
+The Unisoc UMS9117 matrix controller is physically wired as a 5×5 grid (25 crosspoints). Because the Nokia 2660 Flip features 26 distinct input lines (keypad, D-pad, dual SOS keys, volume rocker, and flip hall sensor), **two keys are routed through the SC2720 PMIC External Interrupt Controller (EIC)** over Spreadtrum's ADI serial bus:
+1. **Power / End Key:** Routed to **PMIC EIC Pin 1** (`EIC_PB`).
+2. **Numeric Key 8:** Routed to **PMIC EIC Pin 9** (`EIC_PIN9`).
 
-### Reading the Power Button:
+### Reading the Power Button (and Avoiding the Bitmask Bug):
 The debounced EIC data register is located at address **`0x40608280`** (`EIC_DBNC_DATA`).
 
 ```c
 #define EIC_PB 1 // Bit 1 corresponds to Power Button
 
-int keypad_read_pb(void) {
+// CRITICAL FIX: Must mask with (& 1) before inversion!
+// An unmasked shift ((val >> 1) ^ 1) leaves Bit 8 (shifted from EIC Pin 9 / Key 8) 
+// intact, causing any Key 8 press to falsely trigger a Power/End event!
+static inline int read_power_button(void) {
     uint32_t val = adi_read(0x40608280);
-    // Active low on hardware: inverted so 1 = Pressed, 0 = Released
-    return (val >> EIC_PB & 1) ^ 1;
+    return ((val >> EIC_PB) & 1) ^ 1;
 }
 ```
 
