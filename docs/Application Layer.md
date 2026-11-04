@@ -33,7 +33,12 @@ A primary goal of reverse-engineering feature phones is locating dynamic applica
 
 ## 3. MOCOR GUI & Application Framework (`MMK`)
 
-MOCOR structures all interactive applications under the **MMI (Man-Machine Interface)** subsystem (`MS_MMI_Main`), managed by the **MMK (MMI Kernel / Window Manager)**:
+### How `user.bin` is Launched
+`user.bin` is statically linked at DRAM base address **`0x88000000`**. It does not boot directly from hardware reset vectors; rather, it is launched by `kernel.bin`:
+1. `kernel.bin` verifies the partition DHTB signature (`init.c:verify_user_img` @ `0x80b54e68`).
+2. During task initialization in `os_cfg.c` (`0x80b654e8`), `kernel.bin` registers static task `0x15` (**`T_P_APP`**, priority `0xe4`, 50 KB stack) with an entry address of **`0x88479f6f`** (located directly inside `user.bin`).
+3. The entry point at `0x88479f6e` is **`MS_MMI_Main`** (source: `MS_MMI_Main/source/mmi_app/kernel/mmimain.c`).
+4. `MS_MMI_Main` detects the hardware boot reason via `MMI_GetPowerOnType` (`0x880da4e0`), registers frequency scaling handlers (`s_mmi_chng_freq_req_handler`), brings up the MMK window manager, loads resource assets from `mmi_res.bin` (`0x90000004`), and launches the root idle window via `MMK_CreateWin()`.
 
 ```
 +--------------------------------------------------------------+

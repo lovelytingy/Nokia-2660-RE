@@ -173,15 +173,100 @@ Disassembly of the verification sequence at file offset `0x04f2` (Thumb mode):
 
 ## kernel — MOCOR RTOS core & userland verification
 
-Role: The core operating system image (`kernel.bin`, partition `0x80000003`). Before launching userland MMI tasks, `kernel.bin` verifies `user.bin` (`0x80000004`), `lte_dsp.bin`, and `gsm_dsp.bin`:
-* `start verify user img:%x`
-* `userimg size:%x`
-* `verify user img malloc fail`
-* `Please download l_dsp image again`
-* `Please download g_dsp image again`
+Role: The core operating system image (`kernel.bin`, partition `0x80000003`). Linked at DRAM base address **`0x80a05e00`** with a standard 1,204-byte (`0x4B4`) DHTB header.
 
-This confirms that **every stage in the NAND boot chain cryptographically verifies the next stage**:
-`BootROM` ➔ `boot0` ➔ `boot1` ➔ `kernel` ➔ `user`.
+### 1. Low-Level CP15 & Stack Bring-Up (`0x80a061f0`)
+`boot1.bin` jumps to the kernel reset vector at `0x80a06000` (`+0x200`), where `ldr pc, [pc]` transfers control to `0x80a061f0` in ARM mode:
+1. **System Control Register (SCTLR)**: `mrc/mcr p15, #0, r0, c1, c0, #0` clears bit 13 (`0x2000`) to enforce low exception vectors (`0x00000000`).
+2. **Coprocessor Access (CPACR & FPEXC)**: Enables CP10 and CP11 coprocessors via `mcr p15, #0, r0, c1, c0, #2` (`0xf00000`) and executes `vmsr fpexc, r0` (`0x40000000`) to activate the hardware VFP/NEON floating-point engine.
+3. **Core Mode Stacks (`0x80a060b4`)**: Configures separate banked stack pointers across all ARM CPU execution modes:
+   * `0xd1` (FIQ mode) $\rightarrow$ sets FIQ SP
+   * `0xd2` (IRQ mode) $\rightarrow$ sets IRQ SP
+   * `0xdb` (Abort mode) $\rightarrow$ sets ABT SP
+   * `0xd7` (Undefined mode) $\rightarrow$ sets UND SP
+   * `0xdf` (System mode) $\rightarrow$ sets SYS SP
+   * `0xd3` (Supervisor mode) $\rightarrow$ restores SVC mode and initial execution stack.
+4. **C Runtime Scatterloader**: Branches (`b 0x814eb0e8`) to the ARM C library `__scatterload` routine (`0x814c029c`), zeroing `.bss` and copying data sections into DRAM, then hands off to `__rt_entry` (`0x814eb0d4`).
+
+### 2. RTOS Scheduler Startup & Idle Loop
+`__rt_entry` calls `main()` at **`0x80a140e0`** (Thumb-2 mode):
+* `0x80a140e2`: `bl #0x80cbefe8` — Initializes early PLLs, clock trees, and memory timings.
+* `0x80a140e6`: `bl #0x80b12ef8` — Initializes hardware timers and board peripherals.
+* `0x80a140ea`: `bl #0x810d475c` — Enters the RTOS scheduler initialization bridge (`0x80a06984` $\rightarrow$ `0x80a0e124`).
+
+At **`0x80a0e124`**, the kernel switches from Thumb to ARM mode (`adr r0, #0; bx r0`):
+```arm
+0x80a0e128: mov  r0, #0x13
+0x80a0e12c: msr  cpsr_c, r0     ; CPSR = 0x13 (Supervisor mode, IRQ & FIQ unmasked)
+0x80a0e130: ldr  r0, [pc, #0xdc]
+0x80a0e134: add  r0, r0, #0x320
+0x80a0e138: mov  sp, r0         ; Establishes System Idle Thread stack
+0x80a0e140: blx  #0x80dec452    ; Starts ThreadX / SCI core tick timers
+0x80a0e144: ...                 ; Scheduler dispatch & idle execution loop
+```
+From this point onward, preemptive task scheduling is active under ThreadX / Spreadtrum Communication Interface (SCI).
+
+### 3. Coprocessor & Modem Bring-Up (`init.c:0x80b551e4`)
+The primary system initialization thread executes `init.c`:
+1. **Modem DSP & Coprocessor Loading (`0x80b54b92`)**:
+   Reads firmware partitions from NAND into reserved modem DRAM buffers:
+   * `BML GSM DSP Code Partition` $\rightarrow$ `gsm_dsp.bin` (`NEMOL_CAT1_EVS_DM_DSP.bin`)
+   * `BML LTE DSP Code Partition` $\rightarrow$ `lte_dsp.bin` (`T117_CAT1_LTEA_DSP.bin`)
+   * `BML CM4 Code Download Partition` $\rightarrow$ `pm_cm4.bin` (Power management coprocessor)
+   If partition reading fails, recovery messages are triggered:
+   * `Please download g_dsp image again` (`init.c:275`)
+   * `Please download l_dsp image again` (`init.c:287`)
+   * `Please download cm4 image again` (`init.c:303`)
+2. **Coprocessor Power & Reset Release (`0x80b54b48`)**:
+   Writes control flags to APB power domain registers (`str r1, [r0, #0x114]`) to release reset lines and supply clocks to the Cortex-M4 and DSPs.
+3. **Inter-Processor Communication (SIPC)**:
+   * Initializes shared-memory ring buffers and mailbox protocols via `0x80b64fb0` and `0x80b650ba`.
+   * Enables hardware mailbox interrupts: `TB_MBOX_SRC_AP_INT` (`0x80b8e4d4`) and `TB_MBOX_TAR_AP_INT` (`0x80b8e4e8`).
+
+### 4. Cryptographic Verification of Userland (`init.c:0x80b54e68`)
+Before launching the userland interface, `kernel.bin` calls `verify_user_img` (`0x80b54e68`):
+```text
+start verify user img: %x -> read BML partition 0x80000004 -> compute SHA-256 blocks -> verify RSA/ECC DHTB cert -> verify suc: %x
+```
+* If verification succeeds, execution proceeds to task creation.
+* If verification fails, it outputs `verify fail` and enters an assert halt dead loop (`init.c:895`).
+
+### 5. Static Task Creation (`os_cfg.c:0x80b654e8`)
+Tasks are instantiated via `SCI_CreateAppThread` (`0x810d19da`):
+
+| Task ID | Name | Priority | Stack Size | Function |
+|:---:|:---|:---:|:---:|:---|
+| `0x00` | **`T_CM`** | `0xd7` (215) | 4 KB | Communication Manager (modem multiplexing) |
+| `0x01` | **`T_DIAG`** | `0xd8` (216) | 4 KB | Diagnostic / AT command server |
+| `0x02` | **`T_KPDSVR`** | `0x63` (99) | 4 KB | Keypad matrix scanner & debouncer |
+| `0x04` | **`T_AUDIO`** | `0xc8` (200) | 8 KB | Audio driver & voice processing pipe |
+| `0x09` | **`T_TIMESVR`**| `0x44` (68) | 2 KB | Software timer subsystem |
+| `0x15` | **`T_P_APP`** | `0xe4` (228) | 50 KB | **Application Framework / MMI Task** |
+
+For Task `0x15` (`T_P_APP`), `os_cfg.c` registers the entry point **`0x88479f6f`**, transferring control into `user.bin`.
+
+---
+
+## user — Application Framework Bring-Up (`user.bin`)
+
+Role: The interactive userland image (`user.bin`, partition `0x80000004`). Linked at DRAM base address **`0x88000000`**.
+
+### 1. Entry Point: `MS_MMI_Main` (`0x88479f6e`)
+Located in `MS_MMI_Main/source/mmi_app/kernel/mmimain.c`:
+1. **Dynamic Frequency Scaling**: Registers `s_mmi_chng_freq_req_handler` with the kernel power manager.
+2. **Boot Reason Inspection (`MMI_GetPowerOnType` @ `0x880da4e0`)**:
+   Inspects hardware wake source:
+   * Normal power key press
+   * USB charger insertion / charging animation
+   * RTC alarm trigger
+   * Factory / calibration test mode
+3. **MMK Window Manager Bring-Up**:
+   * Initializes display buffers and LCD drivers (`OpDevGDI.c`).
+   * Hooks keypad event dispatching (`MMK_DispatchMSGKbd`).
+   * Loads icon, font, and translation bundles from `mmi_res.bin` (partition `0x90000004`).
+   * Spawns the root desktop / idle window handler using `MMK_CreateWin()`.
+4. **Event Loop**:
+   `T_P_APP` enters the main message pump (`MMK_SendMsg` / signal receiver), dispatching UI redraws and user input until device shutdown.
 
 ---
 
