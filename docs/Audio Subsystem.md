@@ -77,48 +77,90 @@ Pin 31 resides in **Bank 1** with offset `(31 / 16) * 0x80 = 0x80` and bit posit
 | **`GPIO_PG_DIR`**  | `0x88` | `0x40280088` | Bank 1 Direction (Bit 15: 1=Output, 0=Input) |
 | **`GPIO_PG_INEN`** | `0xA8` | `0x402800A8` | Bank 1 Input Buffer Enable (Bit 15: 0=Disable input buffer) |
 
-### Bare-Metal Initialization & Square-Wave Generation
+### Bare-Metal Initialization & 1-Wire Mode 2 Control
 ```c
 #define GPIO_BASE 0x40280000
+#define AUDIO_PA_GPIO 31
 
-static inline void write32(uint32_t addr, uint32_t val) {
-    *(volatile uint32_t *)addr = val;
+static int gpio_pin_set(unsigned id, unsigned off, int state) {
+    uint32_t addr, tmp, shl = id & 0xf;
+    if (id >= 0x80) return -1;
+    addr = GPIO_BASE + ((id >> 4) << 7) + off;
+    tmp = *(volatile uint32_t *)addr;
+    if (state < 0) return (tmp >> shl) & 1;
+    tmp &= ~(1u << shl);
+    tmp |= (state & 1) << shl;
+    *(volatile uint32_t *)addr = tmp;
+    return 0;
 }
 
-static inline uint32_t read32(uint32_t addr) {
-    return *(volatile uint32_t *)addr;
+// Enable External PA in Mode 2 (Speaker Mode)
+// Re-engineered from MOCOR kernel.bin codec_ext_pa_ctl @ 0x115890:
+// Sends 1 pulse (HIGH -> LOW) and then holds HIGH to keep the amplifier active.
+void audio_pa_enable(void) {
+    gpio_pin_set(AUDIO_PA_GPIO, 4, 1);    // GPIO_DMSK
+    gpio_pin_set(AUDIO_PA_GPIO, 8, 1);    // GPIO_DIR = output
+    gpio_pin_set(AUDIO_PA_GPIO, 0x28, 0); // GPIO_INEN = disabled
+
+    // 1-wire Mode 2 sequence: HIGH (5us) -> LOW (5us) -> HIGH (stays active)
+    gpio_pin_set(AUDIO_PA_GPIO, 0, 1);
+    sys_wait_clk(250);
+    gpio_pin_set(AUDIO_PA_GPIO, 0, 0);
+    sys_wait_clk(250);
+    gpio_pin_set(AUDIO_PA_GPIO, 0, 1);
+    sys_wait_clk(250);
 }
 
-// Initialize GPIO 31 as Output for Speaker PA
-void audio_pa_init(void) {
-    uint32_t bank_offset = (31 >> 4) * 0x80; // 0x80 (Bank 1)
-    uint32_t pin_mask    = 1u << (31 & 0xF);  // 1 << 15 (0x8000)
-
-    // Set Pin 31 direction to OUTPUT
-    write32(GPIO_BASE + bank_offset + 0x08, read32(GPIO_BASE + bank_offset + 0x08) | pin_mask);
-    // Enable Pin 31 write mask
-    write32(GPIO_BASE + bank_offset + 0x04, read32(GPIO_BASE + bank_offset + 0x04) | pin_mask);
-    // Ensure PA starts LOW (muted/idle)
-    write32(GPIO_BASE + bank_offset + 0x00, read32(GPIO_BASE + bank_offset + 0x00) & ~pin_mask);
+// Disable External PA (Shutdown Mode: hold LOW > 1ms)
+void audio_pa_disable(void) {
+    gpio_pin_set(AUDIO_PA_GPIO, 0, 0);
+    sys_wait_ms(2);
 }
+```
 
-// Drive square wave of frequency `freq_hz` for duration `duration_ms`
-void speaker_play_tone(uint32_t freq_hz, uint32_t duration_ms) {
-    if (freq_hz == 0 || freq_hz > 20000) return;
+### SC2720 PMIC Audio Codec & Line-Out Routing
+The actual audio waveform originates as differential analog audio from the SC2720 PMIC Line-Out (LOUT) block:
+
+| Register | Address | Function |
+|:---|:---:|:---|
+| **`ANA_CDC_04`** | `0x40608704` | Analog Routing (Bits [2:0] = `0x2` for LOUT enable) |
+| **`ANA_CDC_08`** | `0x40608708` | Analog Gain Control (Bits [8:5] = `0x0` mute to `0xF` max gain) |
+| **`ANA_CDC_18`** | `0x40608718` | Codec Bias & Power Reference (Bits [14:6] = `0x7fc0`) |
+| **`ANA_CDC_28`** | `0x40608728` | LOUT Mute Control (Bit 3: `1` = Unmute / Active, `0` = Mute) |
+| **`ANA_CDC_3C`** | `0x4060873c` | Bandgap Reference (Bits [6, 5, 0] = `0x61`) |
+| **`CFG_CDC_38`** | `0x40608838` | Digital Audio Clock Gate (Bits [4, 1, 0] = `0x13`) |
+
+### Bare-Metal Tone Playback
+```c
+void speaker_play_tone(uint32_t freq_hz, uint32_t duration_ms, int gain) {
+    if (freq_hz == 0 || duration_ms == 0) return;
 
     uint32_t half_period_us = 500000 / freq_hz;
     uint32_t total_cycles   = (freq_hz * duration_ms) / 1000;
-    uint32_t pin_mask       = 1u << 15;
-    uint32_t data_reg       = GPIO_BASE + 0x80;
+
+    // 1. Energize External Class-D PA in Mode 2
+    audio_pa_enable();
+
+    // 2. Modulate PMIC Line-Out gain & mute bit to generate audio square wave
+    uint32_t reg_08 = adi_read(0x40608708) & ~0x1e0;
+    uint32_t val_hi = reg_08 | ((gain & 0xf) << 5);
+    uint32_t val_lo = reg_08;
+    uint32_t reg_28 = adi_read(0x40608728);
 
     for (uint32_t i = 0; i < total_cycles; i++) {
-        // High
-        write32(data_reg, read32(data_reg) | pin_mask);
+        // High phase
+        adi_write(0x40608708, val_hi);
+        adi_write(0x40608728, reg_28 | 0x8);
         sys_wait_us(half_period_us);
-        // Low
-        write32(data_reg, read32(data_reg) & ~pin_mask);
+
+        // Low phase
+        adi_write(0x40608708, val_lo);
+        adi_write(0x40608728, reg_28 & ~0x8);
         sys_wait_us(half_period_us);
     }
+
+    // 3. Power down PA to prevent idle hiss
+    audio_pa_disable();
 }
 ```
 

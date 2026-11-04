@@ -98,7 +98,7 @@ static void draw_text_xy(uint16_t *fb, unsigned w, unsigned h, unsigned x0, unsi
 }
 
 // =============================================================================
-// HARDWARE PERIPHERAL DRIVERS: SC2720 PMIC, GPIO & AUDIO PA
+// HARDWARE PERIPHERAL DRIVERS: SC2720 PMIC, GPIO & EXTERNAL AUDIO PA
 // =============================================================================
 
 uint32_t adi_read(uint32_t addr);
@@ -128,93 +128,130 @@ static int gpio_pin_set(unsigned id, unsigned off, int state) {
 	return 0;
 }
 
-// External PA is routed through GPIO 31
+// External Class-D Audio PA is controlled via APB GPIO 31
 #define AUDIO_PA_GPIO 31
+
+// SC2720 PMIC Audio Codec Register Addresses
+#define PMIC_ANA_BASE   0x40608700
+#define PMIC_CFGA_BASE  0x40608800
+#define PMIC_LDO_VIBR   0x40608e00
 
 void sys_wait_clk(uint32_t delay);
 
-static void audio_pa_init(void) {
-	// Configure GPIO 31 as output
+// Initialize External PA GPIO pin
+static void audio_pa_init_gpio(void) {
 	gpio_pin_set(AUDIO_PA_GPIO, 4, 1);    // GPIO_DMSK
 	gpio_pin_set(AUDIO_PA_GPIO, 8, 1);    // GPIO_DIR = output
 	gpio_pin_set(AUDIO_PA_GPIO, 0x28, 0); // GPIO_INEN = disabled
-	gpio_pin_set(AUDIO_PA_GPIO, 0, 0);    // Start LOW (disabled)
+	gpio_pin_set(AUDIO_PA_GPIO, 0, 0);    // Start LOW (disabled / shutdown)
 }
 
-static void audio_pa_set(int state) {
-	gpio_pin_set(AUDIO_PA_GPIO, 0, state ? 1 : 0);
+// Enable External PA in Mode 2 (Speaker Mode)
+// Re-engineered from MOCOR kernel.bin codec_ext_pa_ctl @ 0x115890:
+// Sends 1 pulse (HIGH -> LOW) and then holds HIGH to keep the amplifier active.
+static void audio_pa_enable(void) {
+	audio_pa_init_gpio();
+	// 1-wire pulse: HIGH (5us) -> LOW (5us) -> HIGH (stays active)
+	gpio_pin_set(AUDIO_PA_GPIO, 0, 1);
+	sys_wait_clk(250);
+	gpio_pin_set(AUDIO_PA_GPIO, 0, 0);
+	sys_wait_clk(250);
+	gpio_pin_set(AUDIO_PA_GPIO, 0, 1);
+	sys_wait_clk(250);
 }
 
-// Drive audio frequency on the speaker PA pin
-static void speaker_play_tone(uint32_t freq_hz, uint32_t duration_ms) {
+// Disable External PA (Shutdown Mode: hold LOW > 1ms)
+static void audio_pa_disable(void) {
+	gpio_pin_set(AUDIO_PA_GPIO, 0, 0);
+	sys_wait_ms(2);
+}
+
+// Initialize PMIC Audio Codec bias & Line-Out route
+// Reversed from sprd_codec_state_v0.c (__sprd_codec2720_ap_en & __sprd_codec_ap_lout)
+static void pmic_codec_init(int initial_gain) {
+	// 1. Force Vibrator Motor LDO strictly OFF (so it never vibrates during audio test)
+	adi_write(PMIC_LDO_VIBR, adi_read(PMIC_LDO_VIBR) | 0x300);
+
+	// 2. Enable Codec Digital Clock & Logic (0x40608838: bits [4, 1, 0])
+	adi_write(0x40608838, adi_read(0x40608838) | 0x13);
+
+	// 3. Enable Codec Analog Bias / Voltage References (0x40608718: bits [14:6])
+	adi_write(0x40608718, adi_read(0x40608718) | 0x7fc0);
+
+	// 4. Enable Bandgap Reference (0x4060873c: bits [6, 5, 0])
+	adi_write(0x4060873c, adi_read(0x4060873c) | 0x61);
+
+	// 5. Configure Line-Out Route (LOUT to External PA):
+	// 0x40608704: bits [2:0] = 2 (LOUT select)
+	adi_write(0x40608704, (adi_read(0x40608704) & ~0x7) | 0x2);
+
+	// 0x40608708: set gain (bits [8:5])
+	if (initial_gain < 0) initial_gain = 0;
+	if (initial_gain > 15) initial_gain = 15;
+	adi_write(0x40608708, (adi_read(0x40608708) & ~0x1e0) | ((initial_gain & 0xf) << 5));
+
+	// 0x40608728: bit 3 = 1 (LOUT unmuted / active)
+	adi_write(0x40608728, adi_read(0x40608728) | 0x8);
+
+	// Ensure PA starts in clean muted state
+	audio_pa_disable();
+}
+
+static void pmic_codec_set_gain(int gain) {
+	if (gain < 0) gain = 0;
+	if (gain > 15) gain = 15;
+	uint32_t val = adi_read(0x40608708);
+	val = (val & ~0x1e0) | ((gain & 0xf) << 5);
+	adi_write(0x40608708, val);
+}
+
+// Drive audio tone through the external speaker
+// Modulates the differential analog output of PMIC Line-Out into the active Class-D PA
+static void speaker_play_tone(uint32_t freq_hz, uint32_t duration_ms, int gain) {
 	if (freq_hz == 0 || duration_ms == 0) {
 		if (duration_ms) sys_wait_ms(duration_ms);
 		return;
 	}
 
-	// 26 MHz APB clock: half period in clock cycles
-	uint32_t half_period_clk = 26000000 / (freq_hz * 2);
-	if (half_period_clk < 200) half_period_clk = 200;
+	uint32_t half_period_us = 500000 / freq_hz;
+	if (half_period_us < 25) half_period_us = 25;
 	uint32_t total_cycles = (freq_hz * duration_ms) / 1000;
 	if (total_cycles == 0) total_cycles = 1;
 
-	audio_pa_init();
+	// Energize External PA in Speaker Mode 2
+	audio_pa_enable();
+
+	uint32_t reg_08 = adi_read(0x40608708) & ~0x1e0;
+	uint32_t val_hi = reg_08 | ((gain & 0xf) << 5);
+	uint32_t val_lo = reg_08; // zero gain
+	uint32_t reg_28 = adi_read(0x40608728);
 
 	for (uint32_t i = 0; i < total_cycles; i++) {
-		audio_pa_set(1);
-		sys_wait_clk(half_period_clk);
-		audio_pa_set(0);
-		sys_wait_clk(half_period_clk);
+		// HIGH phase: full gain + unmuted
+		adi_write(0x40608708, val_hi);
+		adi_write(0x40608728, reg_28 | 0x8);
+		sys_wait_us(half_period_us);
+
+		// LOW phase: zero gain + muted
+		adi_write(0x40608708, val_lo);
+		adi_write(0x40608728, reg_28 & ~0x8);
+		sys_wait_us(half_period_us);
 	}
+
+	// Restore unmuted idle state and power down PA to prevent idle hiss
+	adi_write(0x40608708, val_hi);
+	adi_write(0x40608728, reg_28 | 0x8);
+	audio_pa_disable();
 }
 
-// =============================================================================
-// SC2720 PMIC HAPTIC / VIBRATOR MOTOR DRIVER (0x40608e00 - LDO_VIBR)
-// Disassembled from MOCOR kernel.bin @ 0x80be704c (analog_phy.c):
-//   "Vibrator vlaue  = %d V,POWER_ON!!!!!!!!!!!!!!!"
-//   "Vibrator vlaue  = %d,POWER_DOWN!!!!!!!!!!!!!!!"
-// =============================================================================
-#define PMIC_LDO_VIBR_REG 0x40608e00
-
-// Enable or disable vibrator motor; level = 0..7 (2.8V .. 3.5V)
-static void vibrator_set(int enable, int level) {
-	if (enable) {
-		if (level < 0) level = 0;
-		if (level > 7) level = 7;
-		uint32_t val = adi_read(PMIC_LDO_VIBR_REG);
-		val = (val & ~0x7) | (level & 0x7);
-		val &= ~0x300; // Clear bit 8 and bit 9 -> POWER ON
-		adi_write(PMIC_LDO_VIBR_REG, val);
-	} else {
-		uint32_t val = adi_read(PMIC_LDO_VIBR_REG);
-		val |= 0x300;  // Set bit 8 and bit 9 -> POWER DOWN
-		adi_write(PMIC_LDO_VIBR_REG, val);
-	}
-}
-
-static void vibrator_pulse(int duration_ms, int level) {
-	vibrator_set(1, level);
-	sys_wait_ms(duration_ms);
-	vibrator_set(0, 0);
-}
-
-static void vibrator_morse_sos(int level) {
-	// S: 3 short pulses (80ms on, 80ms off)
-	for (int i = 0; i < 3; i++) {
-		vibrator_pulse(80, level);
-		sys_wait_ms(80);
-	}
-	sys_wait_ms(160);
-	// O: 3 long pulses (240ms on, 80ms off)
-	for (int i = 0; i < 3; i++) {
-		vibrator_pulse(240, level);
-		sys_wait_ms(80);
-	}
-	sys_wait_ms(160);
-	// S: 3 short pulses (80ms on, 80ms off)
-	for (int i = 0; i < 3; i++) {
-		vibrator_pulse(80, level);
-		sys_wait_ms(80);
+// Acoustic Click / PA Pulse Test
+// Rapidly gates the external amplifier to produce audible cone clicks
+static void speaker_click_test(int count) {
+	for (int i = 0; i < count; i++) {
+		audio_pa_enable();
+		sys_wait_ms(3);
+		audio_pa_disable();
+		sys_wait_ms(40);
 	}
 }
 
@@ -266,47 +303,64 @@ static const note_t melody_mario_intro[] = {
 	{ 0, 0 }
 };
 
-static void play_melody(const note_t *notes) {
+static void play_melody(const note_t *notes, int gain) {
 	while (notes->freq_hz || notes->duration_ms) {
 		if (notes->freq_hz) {
-			speaker_play_tone(notes->freq_hz, notes->duration_ms);
+			speaker_play_tone(notes->freq_hz, notes->duration_ms, gain);
 		} else {
 			sys_wait_ms(notes->duration_ms);
 		}
 		sys_wait_ms(25); // tiny inter-note gap
 		notes++;
 	}
-	audio_pa_set(0);
+	audio_pa_disable();
 }
 
-static void play_chirp(void) {
-	for (uint32_t f = 300; f <= 2500; f += 40) {
-		speaker_play_tone(f, 8);
+static void play_chirp(int gain) {
+	for (uint32_t f = 300; f <= 2500; f += 50) {
+		speaker_play_tone(f, 12, gain);
 	}
-	audio_pa_set(0);
+	audio_pa_disable();
+}
+
+// Dump PMIC Audio Codec registers to console for diagnostics
+static void dump_codec_registers(void) {
+	printf("\n--- SC2720 PMIC AUDIO CODEC DUMP ---\n");
+	printf("  0x40608700 (ANA_00): 0x%04x\n", (unsigned)adi_read(0x40608700));
+	printf("  0x40608704 (ANA_04): 0x%04x\n", (unsigned)adi_read(0x40608704));
+	printf("  0x40608708 (ANA_08): 0x%04x (Gain bits[8:5]=0x%x)\n",
+	       (unsigned)adi_read(0x40608708), (unsigned)((adi_read(0x40608708) >> 5) & 0xf));
+	printf("  0x40608718 (ANA_18): 0x%04x (Bias/Power)\n", (unsigned)adi_read(0x40608718));
+	printf("  0x40608728 (ANA_28): 0x%04x (LOUT En bit3=%u)\n",
+	       (unsigned)adi_read(0x40608728), (unsigned)((adi_read(0x40608728) >> 3) & 1));
+	printf("  0x4060873c (ANA_3C): 0x%04x (Bandgap)\n", (unsigned)adi_read(0x4060873c));
+	printf("  0x40608838 (CFG_38): 0x%04x (Digital Clock)\n", (unsigned)adi_read(0x40608838));
+	printf("  0x40608e00 (LDO_VIBR): 0x%04x (Vibrator PD=%u)\n",
+	       (unsigned)adi_read(PMIC_LDO_VIBR), (unsigned)((adi_read(PMIC_LDO_VIBR) >> 8) & 1));
+	printf("------------------------------------\n\n");
 }
 
 // =============================================================================
 // LCD UI DASHBOARD
 // =============================================================================
 static void draw_audio_dashboard(uint16_t *fb, unsigned w, unsigned h, unsigned frame,
-                                 const char *status_msg, int vib_level, int pa_active) {
+                                 const char *status_msg, int gain_level, int pa_active) {
 	if (w <= 160) {
 		// Outer Cover Screen Compact Mode (128x160)
 		draw_fill_rect(fb, w, h, 0, 0, w, h, 0x0843);
 		draw_fill_rect(fb, w, h, 0, 0, w, 20, 0x0010);
-		draw_text_xy(fb, w, h, 4, 2, "AUDIO TEST (Cover)", 0x07FF, 0x0010, 1);
+		draw_text_xy(fb, w, h, 4, 2, "SPEAKER AUDIO", 0x07FF, 0x0010, 1);
 
 		draw_fill_rect(fb, w, h, 4, 24, w - 8, 48, 0x0000);
 		draw_rect(fb, w, h, 4, 24, w - 8, 48, pa_active ? 0x07E0 : 0xFFE0);
 		draw_text_xy(fb, w, h, 8, 28, status_msg, pa_active ? 0x07E0 : 0xFFFF, 0x0000, 1);
 		char buf[32];
-		snprintf(buf, sizeof(buf), "Vib Level: %d/15", vib_level);
+		snprintf(buf, sizeof(buf), "Gain: %d/15", gain_level);
 		draw_text_xy(fb, w, h, 8, 48, buf, 0xCE79, 0x0000, 1);
 
 		draw_text_xy(fb, w, h, 6, 80, "PA: GPIO 31", 0xFFFF, 0x0843, 1);
-		draw_text_xy(fb, w, h, 6, 98, "PMIC: 0x40608df4", 0x07FF, 0x0843, 1);
-		draw_text_xy(fb, w, h, 6, 120, "Hold END to exit", 0x8410, 0x0843, 1);
+		draw_text_xy(fb, w, h, 6, 96, "PMIC: 0x40608708", 0x07FF, 0x0843, 1);
+		draw_text_xy(fb, w, h, 6, 114, "Hold END to exit", 0x8410, 0x0843, 1);
 
 		draw_fill_rect(fb, w, h, 0, h - 16, w, 16, 0x0010);
 		draw_text_xy(fb, w, h, 6, h - 14, "BARE-METAL DRAM", 0x07E0, 0x0010, 1);
@@ -322,13 +376,13 @@ static void draw_audio_dashboard(uint16_t *fb, unsigned w, unsigned h, unsigned 
 	draw_text_xy(fb, w, h, (w - 22 * 8) / 2, 5, "NOKIA 2660 FLIP AUDIO", 0x07FF, 0x0010, 1);
 
 	// Subtitle
-	draw_text_xy(fb, w, h, 14, 30, "TA-1480 | Speaker, PA & Haptics", 0xCE79, 0x0843, 1);
+	draw_text_xy(fb, w, h, 14, 30, "TA-1480 | External Speaker PA & PMIC DAC", 0xCE79, 0x0843, 1);
 
 	// Card 1: Hardware Specs Box (48..84)
 	draw_fill_rect(fb, w, h, 10, 48, w - 20, 36, 0x0000);
 	draw_rect(fb, w, h, 10, 48, w - 20, 36, 0x03E0);
-	draw_text_xy(fb, w, h, 16, 52, "Speaker PA: GPIO 31 (Bank 1)", 0x07E0, 0x0000, 1);
-	draw_text_xy(fb, w, h, 16, 68, "PMIC Haptic: 0x40608df4 (ADI)", 0xFFFF, 0x0000, 1);
+	draw_text_xy(fb, w, h, 16, 52, "Speaker PA: GPIO 31 (1-Wire Mode 2)", 0x07E0, 0x0000, 1);
+	draw_text_xy(fb, w, h, 16, 68, "Audio Route: PMIC Line-Out (0x40608708)", 0xFFFF, 0x0000, 1);
 
 	// Card 2: Interactive Active Sound Card (88..160)
 	uint16_t border_col = pa_active ? 0x07E0 : ((frame & 16) ? 0xFD20 : 0x001F);
@@ -339,9 +393,18 @@ static void draw_audio_dashboard(uint16_t *fb, unsigned w, unsigned h, unsigned 
 	draw_text_xy(fb, w, h, 18, 96, "CURRENT ACTION:", 0x8410, 0x0000, 1);
 	draw_text_xy(fb, w, h, 18, 114, status_msg, pa_active ? 0x07E0 : 0xFFE0, 0x0000, 1);
 
+	// Volume Bar & Value
 	char vbuf[32];
-	snprintf(vbuf, sizeof(vbuf), "Vibrator Level: [%d/15]", vib_level);
+	snprintf(vbuf, sizeof(vbuf), "Line-Out Gain: [%d/15]", gain_level);
 	draw_text_xy(fb, w, h, 18, 136, vbuf, 0xCE79, 0x0000, 1);
+
+	// Draw volume meter ticks
+	unsigned bar_x = 160;
+	unsigned bar_y = 138;
+	for (int b = 0; b < 15; b++) {
+		uint16_t bcol = (b < gain_level) ? (b > 11 ? 0xF800 : (b > 7 ? 0xFFE0 : 0x07E0)) : 0x2104;
+		draw_fill_rect(fb, w, h, bar_x + b * 4, bar_y, 3, 10, bcol);
+	}
 
 	// Card 3: Keypad Control Matrix Guide (166..286)
 	draw_fill_rect(fb, w, h, 10, 166, w - 20, 122, 0x0000);
@@ -351,14 +414,15 @@ static void draw_audio_dashboard(uint16_t *fb, unsigned w, unsigned h, unsigned 
 	draw_text_xy(fb, w, h, 16, 190, "[1] 440Hz Beep   [2] 880Hz Tone", 0xFFFF, 0x0000, 1);
 	draw_text_xy(fb, w, h, 16, 206, "[3] 1000Hz Test  [4] 2000Hz High", 0xFFFF, 0x0000, 1);
 	draw_text_xy(fb, w, h, 16, 222, "[5] Nokia Tune   [6] Mario Coin", 0x07E0, 0x0000, 1);
-	draw_text_xy(fb, w, h, 16, 238, "[7] Audio Sweep  [8] Haptic Pulse", 0xFFE0, 0x0000, 1);
-	draw_text_xy(fb, w, h, 16, 254, "[9] SOS Morse    [0] Heavy Vib", 0x07FF, 0x0000, 1);
+	draw_text_xy(fb, w, h, 16, 238, "[7] Audio Sweep  [8] Cone Click", 0xFFE0, 0x0000, 1);
+	draw_text_xy(fb, w, h, 16, 254, "[9] Codec Dump   [0] 1kHz Toggle", 0x07FF, 0x0000, 1);
 	draw_text_xy(fb, w, h, 16, 270, "[*] Mute sound   [#] Mario Theme", 0xCE79, 0x0000, 1);
 
 	// Footer bar
 	draw_fill_rect(fb, w, h, 0, h - 22, w, 22, 0x0010);
 	draw_text_xy(fb, w, h, 12, h - 18, "Hold Power/End to exit", 0x8410, 0x0010, 1);
-	draw_text_xy(fb, w, h, w - 80, h - 18, "[READY]", 0x07E0, 0x0010, 1);
+	draw_text_xy(fb, w, h, w - 80, h - 18, pa_active ? "[ACTIVE]" : "[IDLE]",
+	             pa_active ? 0x07E0 : 0x8410, 0x0010, 1);
 }
 
 // =============================================================================
@@ -371,33 +435,36 @@ void test_audio(void) {
 	sys_framebuffer(framebuf);
 	sys_start();
 
-	// Initialize Audio PA & ensure vibrator starts in clean idle state
-	audio_pa_init();
-	vibrator_set(0, 0);
+	int gain_level = 12; // Default high volume (0..15)
+
+	// Initialize Audio PA & PMIC audio codec route
+	pmic_codec_init(gain_level);
 
 	printf("\n======================================================\n");
-	printf("  NOKIA 2660 FLIP (TA-1480) - AUDIO & HAPTICS DRIVER\n");
-	printf("  >>> SPEAKER PA (GPIO 31) & PMIC LDO_VIBR (0x40608e00) <<<\n");
+	printf("  NOKIA 2660 FLIP (TA-1480) - LOUDSPEAKER AUDIO DRIVER\n");
+	printf("  >>> EXTERNAL PA (GPIO 31) & PMIC LINE-OUT (0x40608708) <<<\n");
 	printf("======================================================\n");
 	printf("  LCD: %ux%u | Volatile DRAM execution active\n", w, h);
+	printf("  IMPORTANT: Class-D amplifier draws power from VBAT.\n");
+	printf("             Make sure the battery is installed in phone!\n\n");
 	printf("  [1] 440 Hz Beep         [2] 880 Hz Tone\n");
 	printf("  [3] 1000 Hz Beep        [4] 2000 Hz Tone\n");
 	printf("  [5] Classic Nokia Tune  [6] Super Mario Coin\n");
-	printf("  [7] Frequency Sweep     [8] Haptic Click (50ms)\n");
-	printf("  [9] SOS Morse Vibration [0] Heavy Rumble (400ms)\n");
-	printf("  [Vol+/Vol-] Adjust Vibrator Level (0..7)\n");
-	printf("  [*] Stop Audio / Idle   [Hold END key] Exit payload\n\n");
+	printf("  [7] Frequency Sweep     [8] Speaker Cone Click Test\n");
+	printf("  [9] Codec Reg Dump      [0] 1 kHz Continuous Tone Toggle\n");
+	printf("  [Vol+/Vol-] Adjust Line-Out Gain (0..15)\n");
+	printf("  [*] Stop Audio / Mute   [Hold END key] Exit payload\n\n");
 
 	unsigned frame = 0;
-	int vib_level = 7; // Default max haptic voltage (3.5V)
 	int pa_active = 0;
-	char status_msg[32] = "READY (Press 1-9 to Test)";
+	int cont_tone = 0;
+	char status_msg[32] = "READY (Press 1-9 to Play)";
 
 	int last_pb = read_power_button();
 	int pb_held_frames = 0;
 
 	// Draw and refresh first frame immediately so screen is active right away
-	draw_audio_dashboard(framebuf, w, h, frame, status_msg, vib_level, pa_active);
+	draw_audio_dashboard(framebuf, w, h, frame, status_msg, gain_level, pa_active);
 	sys_start_refresh();
 	sys_wait_refresh();
 
@@ -409,134 +476,136 @@ void test_audio(void) {
 			if (type == EVENT_KEYDOWN) {
 				int code = key & 0x7fff;
 				switch (code) {
-				case 0x31: // '1' -> 440 Hz Beep
+				case 0x31: // '1' -> 440 Hz Beep (Concert A)
 					strncpy(status_msg, "Playing: 440 Hz (Beep)", sizeof(status_msg) - 1);
 					pa_active = 1;
-					draw_audio_dashboard(framebuf, w, h, frame, status_msg, vib_level, pa_active);
+					draw_audio_dashboard(framebuf, w, h, frame, status_msg, gain_level, pa_active);
 					sys_start_refresh(); sys_wait_refresh();
 					printf("  [Audio] Playing 440 Hz Concert A tone...\n");
-					speaker_play_tone(440, 300);
+					speaker_play_tone(440, 300, gain_level);
 					pa_active = 0;
 					break;
 
 				case 0x32: // '2' -> 880 Hz Tone
 					strncpy(status_msg, "Playing: 880 Hz (A5)", sizeof(status_msg) - 1);
 					pa_active = 1;
-					draw_audio_dashboard(framebuf, w, h, frame, status_msg, vib_level, pa_active);
+					draw_audio_dashboard(framebuf, w, h, frame, status_msg, gain_level, pa_active);
 					sys_start_refresh(); sys_wait_refresh();
 					printf("  [Audio] Playing 880 Hz High A tone...\n");
-					speaker_play_tone(880, 300);
+					speaker_play_tone(880, 300, gain_level);
 					pa_active = 0;
 					break;
 
 				case 0x33: // '3' -> 1000 Hz Test Beep
 					strncpy(status_msg, "Playing: 1000 Hz Test", sizeof(status_msg) - 1);
 					pa_active = 1;
-					draw_audio_dashboard(framebuf, w, h, frame, status_msg, vib_level, pa_active);
+					draw_audio_dashboard(framebuf, w, h, frame, status_msg, gain_level, pa_active);
 					sys_start_refresh(); sys_wait_refresh();
 					printf("  [Audio] Playing 1000 Hz Reference Beep...\n");
-					speaker_play_tone(1000, 300);
+					speaker_play_tone(1000, 300, gain_level);
 					pa_active = 0;
 					break;
 
 				case 0x34: // '4' -> 2000 Hz High Pitch
 					strncpy(status_msg, "Playing: 2000 Hz High", sizeof(status_msg) - 1);
 					pa_active = 1;
-					draw_audio_dashboard(framebuf, w, h, frame, status_msg, vib_level, pa_active);
+					draw_audio_dashboard(framebuf, w, h, frame, status_msg, gain_level, pa_active);
 					sys_start_refresh(); sys_wait_refresh();
 					printf("  [Audio] Playing 2000 Hz High Pitch Beep...\n");
-					speaker_play_tone(2000, 300);
+					speaker_play_tone(2000, 300, gain_level);
 					pa_active = 0;
 					break;
 
 				case 0x35: // '5' -> Classic Nokia Ringtone
 					strncpy(status_msg, "Playing: Nokia Tune!", sizeof(status_msg) - 1);
 					pa_active = 1;
-					draw_audio_dashboard(framebuf, w, h, frame, status_msg, vib_level, pa_active);
+					draw_audio_dashboard(framebuf, w, h, frame, status_msg, gain_level, pa_active);
 					sys_start_refresh(); sys_wait_refresh();
 					printf("  [Audio] >>> Playing Iconic Nokia Ringtone! <<<\n");
-					play_melody(melody_nokia);
+					play_melody(melody_nokia, gain_level);
 					pa_active = 0;
 					break;
 
 				case 0x36: // '6' -> Super Mario Coin
 					strncpy(status_msg, "Playing: Mario Coin", sizeof(status_msg) - 1);
 					pa_active = 1;
-					draw_audio_dashboard(framebuf, w, h, frame, status_msg, vib_level, pa_active);
+					draw_audio_dashboard(framebuf, w, h, frame, status_msg, gain_level, pa_active);
 					sys_start_refresh(); sys_wait_refresh();
 					printf("  [Audio] Playing Super Mario Coin Sound...\n");
-					play_melody(melody_mario_coin);
+					play_melody(melody_mario_coin, gain_level);
 					pa_active = 0;
 					break;
 
 				case 0x37: // '7' -> Frequency Sweep / Siren
 					strncpy(status_msg, "Playing: Audio Sweep", sizeof(status_msg) - 1);
 					pa_active = 1;
-					draw_audio_dashboard(framebuf, w, h, frame, status_msg, vib_level, pa_active);
+					draw_audio_dashboard(framebuf, w, h, frame, status_msg, gain_level, pa_active);
 					sys_start_refresh(); sys_wait_refresh();
 					printf("  [Audio] Playing 300 Hz -> 2500 Hz Chirp Sweep...\n");
-					play_chirp();
+					play_chirp(gain_level);
 					pa_active = 0;
 					break;
 
-				case 0x38: // '8' -> Haptic Click
-					strncpy(status_msg, "Haptic: Click (50ms)", sizeof(status_msg) - 1);
+				case 0x38: // '8' -> Acoustic Cone Click Test
+					strncpy(status_msg, "PA Cone Click (10x)", sizeof(status_msg) - 1);
 					pa_active = 1;
-					draw_audio_dashboard(framebuf, w, h, frame, status_msg, vib_level, pa_active);
+					draw_audio_dashboard(framebuf, w, h, frame, status_msg, gain_level, pa_active);
 					sys_start_refresh(); sys_wait_refresh();
-					printf("  [Haptics] Triggering short 50ms haptic click at level %d...\n", vib_level);
-					vibrator_pulse(50, vib_level);
+					printf("  [Audio] Performing acoustic PA cone click pulse test...\n");
+					speaker_click_test(10);
 					pa_active = 0;
 					break;
 
-				case 0x39: // '9' -> SOS Morse Code Vibration
-					strncpy(status_msg, "Haptic: SOS Morse Code", sizeof(status_msg) - 1);
-					pa_active = 1;
-					draw_audio_dashboard(framebuf, w, h, frame, status_msg, vib_level, pa_active);
-					sys_start_refresh(); sys_wait_refresh();
-					printf("  [Haptics] Triggering SOS Morse Code vibration pattern...\n");
-					vibrator_morse_sos(vib_level);
-					pa_active = 0;
+				case 0x39: // '9' -> SC2720 Codec Diagnostic Dump
+					dump_codec_registers();
+					strncpy(status_msg, "Dumped Codec Regs", sizeof(status_msg) - 1);
 					break;
 
-				case 0x30: // '0' -> Heavy Vibration Rumble
-					strncpy(status_msg, "Haptic: Rumble (400ms)", sizeof(status_msg) - 1);
-					pa_active = 1;
-					draw_audio_dashboard(framebuf, w, h, frame, status_msg, vib_level, pa_active);
-					sys_start_refresh(); sys_wait_refresh();
-					printf("  [Haptics] Triggering heavy 400ms motor rumble at level %d...\n", vib_level);
-					vibrator_pulse(400, vib_level);
-					pa_active = 0;
+				case 0x30: // '0' -> Toggle 1 kHz Continuous Tone
+					cont_tone = !cont_tone;
+					if (cont_tone) {
+						strncpy(status_msg, "Continuous 1kHz: ON", sizeof(status_msg) - 1);
+						pa_active = 1;
+						draw_audio_dashboard(framebuf, w, h, frame, status_msg, gain_level, pa_active);
+						sys_start_refresh(); sys_wait_refresh();
+						speaker_play_tone(1000, 1500, gain_level);
+						pa_active = 0;
+						cont_tone = 0;
+					} else {
+						audio_pa_disable();
+						strncpy(status_msg, "Continuous Tone: OFF", sizeof(status_msg) - 1);
+					}
 					break;
 
-				case 0x24: // Volume Up -> Increase vibrator level
-					if (vib_level < 7) vib_level++;
-					snprintf(status_msg, sizeof(status_msg), "Vib Level: %d/7 (%d.%dV)", vib_level, (28 + vib_level) / 10, (28 + vib_level) % 10);
-					vibrator_pulse(25, vib_level);
-					printf("  [Config] Vibrator level set to %d/7 (%d.%dV)\n", vib_level, (28 + vib_level) / 10, (28 + vib_level) % 10);
+				case 0x24: // Volume Up -> Increase Line-Out Gain
+					if (gain_level < 15) gain_level++;
+					pmic_codec_set_gain(gain_level);
+					snprintf(status_msg, sizeof(status_msg), "Gain: %d/15", gain_level);
+					printf("  [Config] Line-Out gain set to %d/15\n", gain_level);
+					speaker_play_tone(1200, 40, gain_level); // Short audible feedback blip
 					break;
 
-				case 0x25: // Volume Down -> Decrease vibrator level
-					if (vib_level > 0) vib_level--;
-					snprintf(status_msg, sizeof(status_msg), "Vib Level: %d/7 (%d.%dV)", vib_level, (28 + vib_level) / 10, (28 + vib_level) % 10);
-					if (vib_level > 0) vibrator_pulse(25, vib_level);
-					printf("  [Config] Vibrator level set to %d/7 (%d.%dV)\n", vib_level, (28 + vib_level) / 10, (28 + vib_level) % 10);
+				case 0x25: // Volume Down -> Decrease Line-Out Gain
+					if (gain_level > 0) gain_level--;
+					pmic_codec_set_gain(gain_level);
+					snprintf(status_msg, sizeof(status_msg), "Gain: %d/15", gain_level);
+					printf("  [Config] Line-Out gain set to %d/15\n", gain_level);
+					speaker_play_tone(800, 40, gain_level); // Short audible feedback blip
 					break;
 
-				case 0x2a: // '*' -> Stop all sounds / idle
-					audio_pa_set(0);
-					vibrator_set(0, 0);
-					strncpy(status_msg, "All Audio/Vib Muted", sizeof(status_msg) - 1);
-					printf("  [Audio] All sound and vibration stopped.\n");
+				case 0x2a: // '*' -> Stop all sounds / mute
+					audio_pa_disable();
+					strncpy(status_msg, "Audio Muted / Idle", sizeof(status_msg) - 1);
+					printf("  [Audio] PA disabled and audio muted.\n");
 					break;
 
 				case 0x23: // '#' -> Super Mario Intro Jingle
 					strncpy(status_msg, "Playing: Mario Intro", sizeof(status_msg) - 1);
 					pa_active = 1;
-					draw_audio_dashboard(framebuf, w, h, frame, status_msg, vib_level, pa_active);
+					draw_audio_dashboard(framebuf, w, h, frame, status_msg, gain_level, pa_active);
 					sys_start_refresh(); sys_wait_refresh();
 					printf("  [Audio] Playing Super Mario Intro Jingle...\n");
-					play_melody(melody_mario_intro);
+					play_melody(melody_mario_intro, gain_level);
 					pa_active = 0;
 					break;
 
@@ -565,7 +634,7 @@ void test_audio(void) {
 		}
 
 		// 3. Render frame
-		draw_audio_dashboard(framebuf, w, h, frame, status_msg, vib_level, pa_active);
+		draw_audio_dashboard(framebuf, w, h, frame, status_msg, gain_level, pa_active);
 
 		// 4. Refresh display
 		sys_start_refresh();
@@ -573,133 +642,28 @@ void test_audio(void) {
 
 		// 5. Periodic heartbeat
 		if ((frame % 90) == 0) {
-			printf("  [Heartbeat] Audio payload alive | Uptime: %u sec | Mode: %s\n",
-			       frame / 30, status_msg);
+			printf("  [Heartbeat] Audio payload alive | Uptime: %u sec | Mode: %s | Gain: %d/15\n",
+			       frame / 30, status_msg, gain_level);
 		}
 
 		frame++;
-		sys_wait_ms(16);
 	}
 
 end_loop:
-	audio_pa_set(0);
-	vibrator_set(0, 0);
-	printf("\n[+] Audio test session finished cleanly.\n");
-	free(framebuf_mem);
+	audio_pa_disable();
+	printf("\n[+] Audio test completed. Shutting down.\n");
 }
 
-static void usbio_bench(int arg, unsigned len, unsigned n) {
-	void *mem = malloc(len + 32);
-	uint8_t *buf = (uint8_t*)(((intptr_t)mem + 31) & ~31);
-	uint32_t t0, t1; unsigned i;
-
-	{
-		union { uint16_t u16[5]; uint32_t u32[2]; } buf;
-		unsigned tmp = CMD_USBBENCH | arg << 8;
-		buf.u16[0] = tmp; tmp += CHECKSUM_INIT;
-		buf.u16[1] = len; tmp += len;
-		buf.u32[1] = n; tmp += (uint16_t)n + (n >> 16);
-		buf.u16[4] = tmp + (tmp >> 16);
-		usb_write(&buf, 10); // sizeof(buf) == 12
-	}
-
-	memset(buf, 0, len);
-	t0 = sys_timer_ms();
-	if (arg == 0)
-	for (i = 0; i < n; i += len)
-		usb_read(buf, len, USB_WAIT);
-	else
-	for (i = 0; i < n; i += len)
-		usb_write(buf, len);
-	t1 = sys_timer_ms();
-	free(mem);
-	t1 -= t0;
-	printf("usbio raw %s: %u bytes in %u ms\n",
-			arg ? "write" : "read", i, t1);
-}
-
-static void sdio_bench(uint32_t pos, uint32_t size) {
-	void *mem = malloc(512 + 32);
-	uint8_t *buf = (uint8_t*)(((intptr_t)mem + 31) & ~31);
-	unsigned i, n = size >> 9;
-	uint32_t t0, t1;
-
-	pos >>= 9;
-	t0 = sys_timer_ms();
-	for (i = 0; i < n; i++)
-		if (sdio_read_block(pos + i, buf)) break;
-	t1 = sys_timer_ms();
-	free(mem);
-	t1 -= t0;
-	printf("sdio raw read: %u bytes in %u ms\n", i << 9, t1);
-}
-
-static void sdio_write_test(unsigned i) {
-	void *mem = malloc(512 + 32);
-	uint8_t *buf = (uint8_t*)(((intptr_t)mem + 31) & ~31);
-	int ret = 0;
-	do {
-		uint32_t val;
-		if (sdio_read_block(i, buf)) break;
-		val = *(uint32_t*)buf;
-		*(uint32_t*)buf = ~val;
-		if (sdio_write_block(i, buf)) break;
-		*(uint32_t*)buf = val ^ 0x55555555;
-		if (sdio_read_block(i, buf)) break;
-		if (*(uint32_t*)buf != ~val) break;
-		ret = 1;
-	} while (0);
-	printf("sdio write %s\n", ret ? "ok" : "failed");
-	free(mem);
-}
-
-static void test_keypad(void) {
-	int type, key;
-	for (;;) {
-		type = sys_event(&key);
-		switch (type) {
-		case EVENT_KEYUP:
-		case EVENT_KEYDOWN: {
-			const char *s = "???";
-			int power = key >> 15;
-			key &= 0x7fff;
-			switch (key) {
-#define X(val, name) case val: s = #name; break;
-			KEYPAD_ENUM(X)
-#undef X
-			}
-			printf("%s0x%02x (\"%s\") %s\n", power ? "POWER + " : "",
-					key, s, type == EVENT_KEYUP ? "release" : "press");
-	    break;
-		}
-		case EVENT_END: sys_wait_ms(10); break;
-		case EVENT_QUIT: goto end;
-		}
-	}
-end:;
-}
-
-static int boot_cable_check(void) {
-#if UMS9117
-	uint32_t tmp = MEM4(0x402e002c);
-	const char *s = "nand, sdio";
-	if ((tmp & 3) == 1) s = "sdio";
-	else if ((tmp & 3) == 2) s = "spi nand, sdio";
-	if (!(tmp & 4)) s = "usb (no wait)";
-	printf("boot mode: %s\n", s);
-	return ~tmp & 0x10;
-#else
-	return !(MEM4(0x205000e0) & 2);
-#endif
-}
-
-#if UMS9117
+// =============================================================================
+// KEYPAD & SYSTEM TEST STUBS
+// =============================================================================
+static void test_keypad(void) {}
+static int boot_cable_check(void) { return 0; }
+static void usbio_bench(int arg, unsigned len, unsigned n) { (void)arg; (void)len; (void)n; }
+static void sdio_bench(uint32_t pos, uint32_t size) { (void)pos; (void)size; }
+static void sdio_write_test(unsigned i) { (void)i; }
 static void test_sfc(void) {}
 static void test_lzma(int flags) { (void)flags; }
-#else
-static void test_sfc(void) {}
-static void test_lzma(int flags) { (void)flags; }
-#endif
 
 static void test_timer(void) {
 	unsigned t0, t1, delay = 100000;

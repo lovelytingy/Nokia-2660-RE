@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# run_audio_test.sh — Launch bare-metal Speaker Audio & PMIC Haptics Tool on Nokia 2660 Flip (TA-1480)
-# Interactive diagnostic tool: External Speaker PA (GPIO 31) square-wave tones, Nokia Tune, Mario sounds,
-# SC2720 PMIC haptic motor (0x40608df4) pulses/SOS Morse code, and live LCD status dashboard.
+# run_audio_test.sh — Launch bare-metal Loudspeaker Audio Tool on Nokia 2660 Flip (TA-1480)
+# Interactive diagnostic tool: External Speaker PA (GPIO 31 1-wire mode 2), SC2720 PMIC Line-Out (0x40608708)
+# tones, Nokia Ringtone, Mario sounds, cone click test, and live LCD status dashboard.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -15,7 +15,7 @@ PINMAP="${DATA_DIR}/pinmap.bin"
 KEYMAP="${DATA_DIR}/keymap.bin"
 
 echo "================================================================="
-echo "  Nokia 2660 Flip (TA-1480) Audio & Haptics Diagnostic Tool"
+echo "  Nokia 2660 Flip (TA-1480) Speaker Audio Diagnostic Tool"
 echo "================================================================="
 echo "SAFETY GUARANTEE: This script loads code STRICTLY into volatile DRAM."
 echo "                  NAND flash is NEVER written or modified."
