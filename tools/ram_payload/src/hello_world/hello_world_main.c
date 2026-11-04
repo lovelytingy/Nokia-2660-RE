@@ -97,194 +97,77 @@ static void draw_text_xy(uint16_t *fb, unsigned w, unsigned h, unsigned x0, unsi
 	}
 }
 
+static void draw_hello_world(uint16_t *fb, unsigned w, unsigned h, unsigned frame) {
+	// Midnight dark background
+	draw_fill_rect(fb, w, h, 0, 0, w, h, 0x0843);
+
+	if (w <= 160) {
+		// Outer Cover Screen Compact Mode (1.77" 128x160 GC9104)
+		draw_fill_rect(fb, w, h, 0, 0, w, 20, 0x0010);
+		draw_text_xy(fb, w, h, 6, 2, "NOKIA 2660 (Cover)", 0x07FF, 0x0010, 1);
+
+		// Center Glowing Card for HELLO WORLD
+		uint16_t border_col = (frame & 16) ? 0x07E0 : 0xFFE0;
+		draw_fill_rect(fb, w, h, 6, 24, w - 12, 44, 0x0000);
+		draw_rect(fb, w, h, 6, 24, w - 12, 44, border_col);
+		draw_text_xy(fb, w, h, (w - 11 * 8) / 2, 30, "HELLO WORLD", 0xFFE0, 0x0000, 1);
+		draw_text_xy(fb, w, h, (w - 9 * 8) / 2, 48, "FROM DRAM", 0x07E0, 0x0000, 1);
+
+		// System Status Info
+		draw_text_xy(fb, w, h, 8, 74, "Base: 0x80100000", 0xFFFF, 0x0843, 1);
+		draw_text_xy(fb, w, h, 8, 92, "NAND: Untouched", 0x07E0, 0x0843, 1);
+		draw_text_xy(fb, w, h, 8, 110, "LCD: GC9104 SPI", 0xFD20, 0x0843, 1);
+		draw_text_xy(fb, w, h, 8, 126, "Hold END to exit", 0x8410, 0x0843, 1);
+
+		// Footer bar
+		draw_fill_rect(fb, w, h, 0, h - 16, w, 16, 0x0010);
+		char buf[32];
+		snprintf(buf, sizeof(buf), "%u sec", frame / 30);
+		draw_text_xy(fb, w, h, 6, h - 14, buf, 0xFFFF, 0x0010, 1);
+		draw_text_xy(fb, w, h, w - 50, h - 14, "[LIVE]", 0x07E0, 0x0010, 1);
+		return;
+	}
+
+	// Inner Main Display (2.8" 240x320 GC9307)
+	// Header banner
+	draw_fill_rect(fb, w, h, 0, 0, w, 28, 0x0010);
+	draw_text_xy(fb, w, h, (w > 180 ? (w - 15 * 8) / 2 : 10), 6, "NOKIA 2660 FLIP", 0x07FF, 0x0010, 1);
+
+	// Device subtitle
+	draw_text_xy(fb, w, h, 16, 36, "TA-1480 | Unisoc T107", 0xCE79, 0x0843, 1);
+	draw_text_xy(fb, w, h, 16, 54, "Bare-Metal Homebrew", 0x8410, 0x0843, 1);
+
+	// Center Glowing Card for HELLO WORLD
+	uint16_t border_col = (frame & 16) ? 0x07E0 : 0xFFE0;
+	draw_fill_rect(fb, w, h, 12, 80, w - 24, 88, 0x0000);
+	draw_rect(fb, w, h, 12, 80, w - 24, 88, border_col);
+	draw_rect(fb, w, h, 14, 82, w - 28, 84, border_col);
+
+	// "HELLO WORLD!" in Scale 2 (16x32 font)
+	draw_text_xy(fb, w, h, (w - 5 * 16) / 2, 88, "HELLO", 0xFFE0, 0x0000, 2);
+	draw_text_xy(fb, w, h, (w - 6 * 16) / 2, 124, "WORLD!", 0x07E0, 0x0000, 2);
+
+	// System Status Info
+	draw_text_xy(fb, w, h, 16, 180, "Code: Volatile DRAM", 0xFFFF, 0x0843, 1);
+	draw_text_xy(fb, w, h, 16, 200, "Base: 0x80100000", 0x07FF, 0x0843, 1);
+	draw_text_xy(fb, w, h, 16, 220, "NAND: 100% Untouched", 0x07E0, 0x0843, 1);
+	draw_text_xy(fb, w, h, 16, 240, "LCD: GC9307 SPI 240x320", 0xFD20, 0x0843, 1);
+	draw_text_xy(fb, w, h, 16, 260, "Hold Power/End to exit", 0x8410, 0x0843, 1);
+
+	// Footer bar
+	char buf[32];
+	snprintf(buf, sizeof(buf), "Active: %u sec", frame / 30);
+	draw_fill_rect(fb, w, h, 0, h - 24, w, 24, 0x0010);
+	draw_text_xy(fb, w, h, 12, h - 20, buf, 0xFFFF, 0x0010, 1);
+	draw_text_xy(fb, w, h, w - 90, h - 20, "[RUNNING]", 0x07E0, 0x0010, 1);
+}
+
 int eic_read(void);
 
 // Read dedicated Power/End button from SC2720 PMIC (0x40608280, EIC Pin 1)
 // MUST strictly isolate bit 1 with (& 1) so EIC Pin 9 (Key 8) is never mistaken for Power!
 static inline int read_power_button(void) {
 	return ((eic_read() >> 1) & 1) ^ 1;
-}
-
-typedef struct {
-	char name[24];
-	int code;
-	int is_down;
-	int col;
-	int row;
-	uint32_t timestamp_ms;
-} key_event_record_t;
-
-#define MAX_HISTORY 3
-static key_event_record_t event_history[MAX_HISTORY];
-static int history_count = 0;
-
-static void push_event(const char *name, int code, int is_down, int col, int row, uint32_t t) {
-	for (int i = MAX_HISTORY - 1; i > 0; i--) {
-		event_history[i] = event_history[i - 1];
-	}
-	strncpy(event_history[0].name, name, sizeof(event_history[0].name) - 1);
-	event_history[0].name[sizeof(event_history[0].name) - 1] = '\0';
-	event_history[0].code = code;
-	event_history[0].is_down = is_down;
-	event_history[0].col = col;
-	event_history[0].row = row;
-	event_history[0].timestamp_ms = t;
-	if (history_count < MAX_HISTORY) history_count++;
-}
-
-static const char *lookup_key_info(int code, int *row, int *col) {
-	*row = -1;
-	*col = -1;
-	switch (code) {
-	case 0x01: *col = 0; *row = 3; return "CALL / DIAL";
-	case 0x02: *col = -1; *row = -1; return "POWER / END";
-	case 0x04: *col = 2; *row = 4; return "D-PAD UP";
-	case 0x05: *col = 1; *row = 3; return "D-PAD DOWN";
-	case 0x06: *col = 2; *row = 1; return "D-PAD LEFT";
-	case 0x07: *col = 3; *row = 3; return "D-PAD RIGHT";
-	case 0x08: *col = 4; *row = 0; return "L-SELECTION KEY";
-	case 0x09: *col = 4; *row = 1; return "R-SELECTION KEY";
-	case 0x0d: *col = 2; *row = 3; return "CENTER / OK";
-	case 0x0e: *col = 3; *row = 4; return "BACK KEY";
-	case 0x1f: *col = 2; *row = 0; return "SHORTCUT KEY";
-	case 0x23: *col = 3; *row = 0; return "HASH (#)";
-	case 0x24: *col = 4; *row = 3; return "VOLUME UP";
-	case 0x25: *col = 4; *row = 4; return "VOLUME DOWN";
-	case 0x29: *col = 4; *row = 2; return "SOS KEY";
-	case 0x2a: *col = 0; *row = 0; return "STAR (*)";
-	case 0x30: *col = 1; *row = 0; return "KEY 0";
-	case 0x31: *col = 0; *row = 2; return "KEY 1";
-	case 0x32: *col = 1; *row = 2; return "KEY 2";
-	case 0x33: *col = 1; *row = 1; return "KEY 3";
-	case 0x34: *col = 0; *row = 4; return "KEY 4";
-	case 0x35: *col = 1; *row = 4; return "KEY 5";
-	case 0x36: *col = 3; *row = 2; return "KEY 6";
-	case 0x37: *col = 0; *row = 1; return "KEY 7";
-	case 0x38: *col = 2; *row = 2; return "KEY 8";
-	case 0x39: *col = 3; *row = 1; return "KEY 9";
-	default:
-		return "UNKNOWN KEY";
-	}
-}
-
-static void draw_keypad_ui(uint16_t *fb, unsigned w, unsigned h, unsigned frame,
-                          const char *last_name, int last_code, int last_state,
-                          int last_col, int last_row, unsigned total_events, int pb_held) {
-	if (w <= 160) {
-		// Outer Cover Screen Compact Mode (128x160)
-		draw_fill_rect(fb, w, h, 0, 0, w, h, 0x0843);
-		draw_fill_rect(fb, w, h, 0, 0, w, 20, 0x0010);
-		draw_text_xy(fb, w, h, 6, 2, "NOKIA 2660 (Cover)", 0x07FF, 0x0010, 1);
-
-		draw_fill_rect(fb, w, h, 4, 24, w - 8, 54, 0x0000);
-		uint16_t bcol = (last_state == 1) ? 0x07E0 : ((last_state == 2) ? 0xFFE0 : 0x001F);
-		draw_rect(fb, w, h, 4, 24, w - 8, 54, bcol);
-		draw_text_xy(fb, w, h, 8, 28, last_name, bcol, 0x0000, 1);
-
-		char cbuf[32];
-		snprintf(cbuf, sizeof(cbuf), "%s (0x%02X)", last_state == 1 ? "PRESSED" : "RELEASED", last_code);
-		draw_text_xy(fb, w, h, 8, 44, cbuf, 0xFFFF, 0x0000, 1);
-		snprintf(cbuf, sizeof(cbuf), "Col:%d Row:%d", last_col, last_row);
-		draw_text_xy(fb, w, h, 8, 60, cbuf, 0x07FF, 0x0000, 1);
-
-		snprintf(cbuf, sizeof(cbuf), "Events: %u", total_events);
-		draw_text_xy(fb, w, h, 8, 84, cbuf, 0xFFFF, 0x0843, 1);
-		snprintf(cbuf, sizeof(cbuf), "PB Pin: %s", pb_held ? "HELD" : "IDLE");
-		draw_text_xy(fb, w, h, 8, 102, cbuf, pb_held ? 0xF800 : 0xCE79, 0x0843, 1);
-		draw_text_xy(fb, w, h, 8, 122, "Hold END to exit", 0x8410, 0x0843, 1);
-
-		draw_fill_rect(fb, w, h, 0, h - 18, w, 18, 0x0010);
-		draw_text_xy(fb, w, h, 6, h - 15, "BARE-METAL DRAM", 0x07E0, 0x0010, 1);
-		return;
-	}
-
-	// Inner Main Display Mode (240x320)
-	// Midnight dark background
-	draw_fill_rect(fb, w, h, 0, 0, w, h, 0x0843);
-
-	// Header banner
-	draw_fill_rect(fb, w, h, 0, 0, w, 26, 0x0010);
-	draw_text_xy(fb, w, h, (w - 15 * 8) / 2, 5, "NOKIA 2660 FLIP", 0x07FF, 0x0010, 1);
-
-	// Subheader
-	draw_text_xy(fb, w, h, 14, 30, "TA-1480 | Unisoc T107 | Bare-Metal", 0xCE79, 0x0843, 1);
-
-	// Section 1: System Hardware Info Box (48..84)
-	draw_fill_rect(fb, w, h, 10, 48, w - 20, 36, 0x0000);
-	draw_rect(fb, w, h, 10, 48, w - 20, 36, 0x03E0);
-	draw_text_xy(fb, w, h, 16, 52, "DRAM: 0x80100000 | NAND: Clean", 0x07E0, 0x0000, 1);
-	draw_text_xy(fb, w, h, 16, 68, "Keypad Base: 0x40250000 (APB)", 0xFFFF, 0x0000, 1);
-
-	// Section 2: Interactive Keypad Live Card (88..198)
-	uint16_t border_col = (last_state == 1) ? 0x07E0 : ((last_state == 2) ? 0xFFE0 : 0x001F);
-	draw_fill_rect(fb, w, h, 10, 88, w - 20, 110, 0x0000);
-	draw_rect(fb, w, h, 10, 88, w - 20, 110, border_col);
-	draw_rect(fb, w, h, 11, 89, w - 22, 108, border_col);
-
-	draw_text_xy(fb, w, h, (w - 22 * 8) / 2, 94, "-- KEYPAD MATRIX TEST --", 0x07FF, 0x0000, 1);
-
-	// Large Key Name Display
-	if (last_state != 0) {
-		unsigned nw = strlen(last_name);
-		uint16_t key_col = (last_state == 1) ? 0x07E0 : 0xFFE0;
-		if (nw <= 12) {
-			draw_text_xy(fb, w, h, (w - nw * 16) / 2, 112, last_name, key_col, 0x0000, 2);
-		} else {
-			draw_text_xy(fb, w, h, (w - nw * 8) / 2, 120, last_name, key_col, 0x0000, 1);
-		}
-	} else {
-		uint16_t hint_col = (frame & 16) ? 0x8410 : 0xCE79;
-		draw_text_xy(fb, w, h, (w - 13 * 16) / 2, 112, "[PRESS A KEY]", hint_col, 0x0000, 2);
-	}
-
-	// State Pill
-	if (last_state == 1) {
-		draw_text_xy(fb, w, h, 16, 150, "STATE: PRESSED  [ACTIVE]", 0x07E0, 0x0000, 1);
-	} else if (last_state == 2) {
-		draw_text_xy(fb, w, h, 16, 150, "STATE: RELEASED [IDLE]", 0xFDA0, 0x0000, 1);
-	} else {
-		draw_text_xy(fb, w, h, 16, 150, "STATE: WAITING FOR INPUT", 0x8410, 0x0000, 1);
-	}
-
-	// Matrix Coords / Code
-	char coord_buf[56];
-	if (last_code == 0x02) {
-		snprintf(coord_buf, sizeof(coord_buf), "Code: 0x02 | PMIC EIC Pin 1 (Dedicated)");
-	} else if (last_code == 0x38) {
-		snprintf(coord_buf, sizeof(coord_buf), "Code: 0x38 | PMIC EIC Pin 9 (Grid C2,R2)");
-	} else if (last_code > 0) {
-		snprintf(coord_buf, sizeof(coord_buf), "Code: 0x%02X | Col: %d, Row: %d", last_code, last_col, last_row);
-	} else {
-		snprintf(coord_buf, sizeof(coord_buf), "Matrix: 5 Columns x 5 Rows Active");
-	}
-	draw_text_xy(fb, w, h, 16, 166, coord_buf, 0xFFFF, 0x0000, 1);
-
-	// Total events & PB live pin
-	char stat_buf[48];
-	snprintf(stat_buf, sizeof(stat_buf), "Events: %-4u | Power Pin: %s", total_events, pb_held ? "HELD" : "UP");
-	draw_text_xy(fb, w, h, 16, 182, stat_buf, pb_held ? 0xF800 : 0xCE79, 0x0000, 1);
-
-	// Section 3: Recent Key Events Log (202..286)
-	draw_fill_rect(fb, w, h, 10, 202, w - 20, 84, 0x0000);
-	draw_rect(fb, w, h, 10, 202, w - 20, 84, 0x4208);
-	draw_text_xy(fb, w, h, 16, 206, "RECENT KEY EVENTS:", 0x07FF, 0x0000, 1);
-	for (int i = 0; i < history_count && i < 3; i++) {
-		char hbuf[48];
-		snprintf(hbuf, sizeof(hbuf), "%c [%s] 0x%02X %s",
-		         (i == 0 ? '>' : ' '), event_history[i].name, event_history[i].code,
-		         event_history[i].is_down ? "DOWN" : "UP");
-		draw_text_xy(fb, w, h, 16, 224 + i * 18, hbuf, (i == 0 ? 0xFFE0 : 0x8410), 0x0000, 1);
-	}
-	if (history_count == 0) {
-		draw_text_xy(fb, w, h, 16, 232, "No events yet. Press buttons!", 0x8410, 0x0000, 1);
-	}
-
-	// Footer Bar
-	draw_fill_rect(fb, w, h, 0, h - 26, w, 26, 0x0010);
-	char fbuf[32];
-	snprintf(fbuf, sizeof(fbuf), "Time: %us", frame / 30);
-	draw_text_xy(fb, w, h, 10, h - 20, fbuf, 0xFFFF, 0x0010, 1);
-	draw_text_xy(fb, w, h, w - 150, h - 20, "[HOLD END: EXIT]", (pb_held ? 0xF800 : 0x07E0), 0x0010, 1);
 }
 
 void test_display(void) {
@@ -295,118 +178,39 @@ void test_display(void) {
 	sys_start();
 
 	printf("\n======================================================\n");
-	printf("  NOKIA 2660 FLIP (TA-1480) - HARDWARE KEYPAD TEST\n");
-	printf("  >>> REAL-TIME KEYPAD MATRIX DRIVER ACTIVE <<<\n");
+	printf("  NOKIA 2660 FLIP (TA-1480) - CUSTOM HOMEBREW PAYLOAD\n");
+	printf("  >>> HELLO WORLD FROM DRAM AT 0x80100000! <<<\n");
 	printf("======================================================\n");
-	printf("  LCD: %ux%u | GC9307 Controller | SPI Bus\n", w, h);
-	printf("  Keypad Base: 0x40250000 | Debounce: 16 | Polarity: 0xFFFF\n");
-	printf("  Power Domain: APB 0x402E1000 enabled\n");
-	printf("  Press any button on physical phone keypad.\n");
-	printf("  Press and hold red Power/End key (~1 sec) to exit.\n\n");
+	printf("  LCD: %ux%u | GC9307/GC9104 Controller | SPI Bus\n", w, h);
+	printf("  Volatile DRAM execution active. NAND is untouched.\n");
+	printf("  Press Ctrl+C on PC or hold Power/End key to terminate.\n\n");
 
 	unsigned frame = 0;
-	unsigned total_events = 0;
-	int last_pb = read_power_button();
 	int pb_held_frames = 0;
-
-	char last_name[24] = "NONE";
-	int last_code = 0;
-	int last_state = 0; // 0=none, 1=pressed, 2=released
-	int last_col = -1;
-	int last_row = -1;
-
-	while (frame < 3600) { // Up to 2 minutes runtime
-		// 1. Poll matrix keypad events
-		int key;
-		int type;
-		while ((type = sys_event(&key)) != EVENT_END) {
-			if (type == EVENT_KEYDOWN || type == EVENT_KEYUP) {
-				int is_down = (type == EVENT_KEYDOWN);
-				int power_mod = key >> 15;
-				int code = key & 0x7fff;
-				int row = -1, col = -1;
-				const char *name = lookup_key_info(code, &row, &col);
-
-				if (col == -1 && code != 0x02) {
-					uint32_t st = KEYPAD_BASE->key_status;
-					row = (st >> 4) & 7;
-					col = st & 7;
-				}
-
-				total_events++;
-				last_code = code;
-				last_col = col;
-				last_row = row;
-				last_state = is_down ? 1 : 2;
-
-				if (power_mod) {
-					snprintf(last_name, sizeof(last_name), "PWR+%s", name);
-				} else {
-					strncpy(last_name, name, sizeof(last_name) - 1);
-					last_name[sizeof(last_name) - 1] = '\0';
-				}
-
-				push_event(last_name, code, is_down, col, row, sys_timer_ms());
-
-				printf("  [KEYPAD EVENT #%-4u] %-14s (0x%02X) | Col: %d, Row: %d | %s%s\n",
-				       total_events, last_name, code, col, row,
-				       is_down ? "DOWN [PRESSED]" : "UP [RELEASED]",
-				       power_mod ? " (PWR COMBO)" : "");
-			} else if (type == EVENT_QUIT) {
-				goto end_loop;
-			}
+	int key;
+	while (frame < 3600) {
+		draw_hello_world(framebuf, w, h, frame);
+		sys_start_refresh();
+		sys_wait_refresh();
+		if ((frame % 30) == 0) {
+			printf("  [Heartbeat] Payload alive | Uptime: %u seconds | Frame: %u\n", frame / 30, frame);
 		}
-
-		// 2. Poll PMIC EIC Power Button
-		int cur_pb = read_power_button();
-		if (cur_pb != last_pb) {
-			last_pb = cur_pb;
-			int is_down = cur_pb;
-			total_events++;
-			last_code = 0x02;
-			last_col = -1;
-			last_row = -1;
-			last_state = is_down ? 1 : 2;
-			strncpy(last_name, "POWER / END", sizeof(last_name) - 1);
-			last_name[sizeof(last_name) - 1] = '\0';
-
-			push_event("POWER / END", 0x02, is_down, -1, -1, sys_timer_ms());
-
-			printf("  [KEYPAD EVENT #%-4u] POWER / END    (0x02) | PMIC EIC Pin 1   | %s\n",
-			       total_events, is_down ? "DOWN [PRESSED]" : "UP [RELEASED]");
-		}
-
-		if (last_pb) {
+		int type = sys_event(&key);
+		if (type == EVENT_QUIT) break;
+		if (read_power_button()) {
 			pb_held_frames++;
-			if (pb_held_frames > 60) {
-				printf("\n[+] Power/End button held for 1 second. Exiting payload cleanly!\n");
+			if (pb_held_frames > 30) {
+				printf("\n[+] Power/End key held. Exiting payload cleanly!\n");
 				break;
 			}
 		} else {
 			pb_held_frames = 0;
 		}
-
-		// 3. Render interactive frame
-		draw_keypad_ui(framebuf, w, h, frame,
-		               last_name, last_code, last_state,
-		               last_col, last_row, total_events, last_pb);
-
-		// 4. Refresh display
-		sys_start_refresh();
-		sys_wait_refresh();
-
-		// 5. Periodic heartbeat to PC console
-		if ((frame % 90) == 0) {
-			printf("  [Heartbeat] Payload alive | Uptime: %u sec | Total Events: %u | PB: %s\n",
-			       frame / 30, total_events, last_pb ? "HELD" : "IDLE");
-		}
-
 		frame++;
 		sys_wait_ms(16);
 	}
 
-end_loop:
-	printf("\n[+] Keypad test session finished. Total events detected: %u\n", total_events);
+	printf("\n[+] Display test complete! Freeing framebuffer.\n");
 	free(framebuf_mem);
 }
 
@@ -478,49 +282,26 @@ static void sdio_write_test(unsigned i) {
 
 static void test_keypad(void) {
 	int type, key;
-	int last_pb = read_power_button();
-
-	printf("\n======================================================\n");
-	printf("  NOKIA 2660 FLIP - KEYPAD MATRIX DIAGNOSTIC (CONSOLE)\n");
-	printf("======================================================\n");
-	printf("  Polling keypad peripheral at 0x40250000...\n");
-	printf("  Press buttons on physical phone keypad.\n");
-	printf("  Press and hold red Power/End button to exit.\n\n");
 
 	for (;;) {
-		int cur_pb = read_power_button();
-		if (cur_pb != last_pb) {
-			last_pb = cur_pb;
-			printf("[KEYPAD] POWER / END (PMIC EIC Bit 1) %s\n",
-			       cur_pb ? "PRESS (DOWN)" : "RELEASE (UP)");
-			if (cur_pb) sys_wait_ms(20);
-		}
-
 		type = sys_event(&key);
 		switch (type) {
 		case EVENT_KEYUP:
 		case EVENT_KEYDOWN: {
+			const char *s = "???";
 			int power = key >> 15;
-			int code = key & 0x7fff;
-			int row = -1, col = -1;
-			const char *s = lookup_key_info(code, &row, &col);
-
-			if (col == -1 && code != 0x02) {
-				uint32_t st = KEYPAD_BASE->key_status;
-				row = (st >> 4) & 7;
-				col = st & 7;
+			key &= 0x7fff;
+			switch (key) {
+#define X(val, name) case val: s = #name; break;
+			KEYPAD_ENUM(X)
+#undef X
 			}
-
-			printf("%s0x%02x (\"%s\" | Col:%d Row:%d) %s\n",
-			       power ? "POWER + " : "", code, s, col, row,
-			       type == EVENT_KEYUP ? "RELEASE" : "PRESS");
-			break;
+			printf("%s0x%02x (\"%s\") %s\n", power ? "POWER + " : "",
+					key, s, type == EVENT_KEYUP ? "release" : "press");
+	    break;
 		}
-		case EVENT_END:
-			sys_wait_ms(10);
-			break;
-		case EVENT_QUIT:
-			goto end;
+		case EVENT_END: sys_wait_ms(10); break;
+		case EVENT_QUIT: goto end;
 		}
 	}
 end:;
@@ -694,13 +475,7 @@ static void test_cpuid(void) {
 #endif
 		: "=r"(id0), "=r"(id1) :: "lr");
 	printf("ARM: id = 0x%08x, cache = 0x%08x\n", id0, id1);
-	// id = 0x41069265
-	// SC6530C/SC6531: cache = 0x1d152152 (16+16KB)
-	// SC6531E: cache = 0x1d112112 (8+8KB)
 
-	// UMS9117:
-	// id = 0x410fc075 (Cortex-A7 MPCore, r0p5)
-	// cache = 0x84448003
 #if UMS9117
 	{
 		uint32_t i, n, x, clidr;
@@ -719,9 +494,6 @@ static void test_cpuid(void) {
 				: "=r"(x) : "r"(i * 2));
 			printf("ARM: CCSIDR(%u) = 0x%08x\n", i, x);
 		}
-		// ARM: CLIDR = 0x0a200023 (LoUU = 1, LoC = 2, Ctype2 = 4, Ctype1 = 3)
-		// ARM: CCSIDR(0) = 0x700fe01a (NumSets = 0x7f, Associativity = 3, LineSize = 2)
-		// ARM: CCSIDR(1) = 0x701fe03a (NumSets = 0xff, Associativity = 7, LineSize = 2)
 		if (n > 1) {
 			__asm__ __volatile__(
 				"mcr p15, #2, %0, c0, c0, #0\n"
@@ -919,4 +691,3 @@ void keytrn_init(void) {
 	FILL_KEYTRN(1)
 #undef FILL_KEYTRN
 }
-

@@ -32,7 +32,8 @@ with open(path, 'w') as f: f.write(s)
 
 echo "[*] Compiling with arm-none-eabi-gcc (Cortex-A7)..."
 make -C "${FPDOOM_DIR}/pack_reloc" CFLAGS="-I."
-make -C "${FPDOOM_DIR}/fptest" clean
+make -C "${FPDOOM_DIR}/fptest" clean T117=1
+rm -rf "${FPDOOM_DIR}/fptest/obj" "${FPDOOM_DIR}/fptest/fptest.bin"
 make -C "${FPDOOM_DIR}/fptest" T117=1 TOOLCHAIN=arm-none-eabi
 
 mkdir -p "${BIN_DIR}"

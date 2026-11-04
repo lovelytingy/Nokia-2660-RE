@@ -180,11 +180,12 @@ Inside stock MOCOR OS (`kernel.bin`):
 
 ---
 
-## 8. Bare-Metal Payload Implementation (`hello_world`)
+## 8. Bare-Metal Keypad Diagnostic Tool (`keypad_test`)
 
-The custom RAM payload toolkit (`tools/ram_payload/src/hello_world/hello_world_main.c`) includes a complete bare-metal polling and visual diagnostic driver:
+The custom RAM payload toolkit (`tools/ram_payload/src/keypad_test/keypad_test_main.c`) includes a complete bare-metal polling and visual diagnostic driver launched via [`tools/ram_payload/run_keypad_test.sh`](file:///Users/lovelytingy/Documents/Personal-Projects/Nokia-2660-RE/tools/ram_payload/run_keypad_test.sh):
 
 1. **Non-blocking Matrix Draining:** Calls `sys_event(&key)` in a loop each frame to drain all keypresses and releases from the hardware FIFO.
-2. **Dedicated EIC Polling:** Inspects `keypad_read_pb()` each frame to capture standalone Power/End keypresses and combo chords (`PWR + <key>`).
+2. **Dedicated EIC Polling:** Inspects `read_power_button()` each frame with isolated `((eic_read() >> 1) & 1) ^ 1` bitmask to capture standalone Power/End keypresses and combo chords (`PWR + <key>`) without Key 8 interference.
 3. **Real-Time Display:** Renders the key name, hex code, matrix column/row, total event counter, and recent event history directly on screen.
-4. **Clean Exit:** Holding the red Power / End key for ~1 second gracefully frees the framebuffer and returns execution cleanly.
+4. **Dual Display Support:** Works on both the inner main screen (`240x320`) and the outer cover screen (`128x160` via `./run_keypad_test.sh cover`).
+5. **Clean Exit:** Holding the red Power / End key for ~1 second gracefully frees the framebuffer and returns execution cleanly.
