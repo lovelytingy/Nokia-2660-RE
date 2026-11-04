@@ -1,139 +1,243 @@
-# Nokia-2660-RE
+# Nokia 2660 Flip (TA-1480) — Reverse Engineering & Custom Code
 
-Community reverse-engineering notes for the **Nokia 2660 Flip (TA-1480)** — India series — Unisoc T107 / **UMS9117** / MOCOR feature phone.
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Platform: Unisoc UMS9117](https://img.shields.io/badge/SoC-Unisoc%20T107%20%2F%20UMS9117-orange.svg)](docs/hardware.md)
+[![Arch: ARM Cortex-A7](https://img.shields.io/badge/Arch-ARMv7--A%20Cortex--A7-red.svg)](docs/boot-process.md)
+[![Execution: Volatile DRAM](https://img.shields.io/badge/Payloads-Safe%20Volatile%20DRAM-brightgreen.svg)](docs/custom-code-execution.md)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-green.svg)](CONTRIBUTING.md)
 
-**Goal:** understand boot + download modes, map firmware, and learn whether **custom firmware** is realistically possible. Contributions welcome — see [CONTRIBUTING.md](CONTRIBUTING.md).
-
-## Current reference device
-
-From dialer **`*#0000#`** on a real unit (India):
-
-| Field | Value |
-|-------|-------|
-| Name | Nokia 2660 Flip |
-| Type designator | TA-1480 |
-| Software version | 10.02.17.00 |
-| NDT code | `MH_13ARA80IN00_0` |
-| HWID | **HW3.0** |
-| Market | India-launched |
-| Chipset / platform | Unisoc T107 / UMS9117 |
-| USB (normal) | `1782:4D00` |
-
-Full device page: [docs/device.md](docs/device.md).
-
-**Note:** PAC / NV work here targets the **Indian** series (`MH_13ARA80IN00…`). Other countries may differ.
-
-## Milestones
-
-- [x] ✅ Identify device / USB / chipset
-- [x] ✅ Obtain MOCOR PAC sample (NV name matches Indian NDT `MH_13ARA80IN00`)
-- [x] ✅ Identify firmware format (`BP_R1.0.0` PAC)
-- [x] ✅ Draft boot/download chain (FDL1 → FDL2; boot0 → boot1) — [docs/boot-process.md](docs/boot-process.md)
-- [x] ✅ Version-matched TA-1480 dump (`10.02.17.00` / `MOCOR_...W22.04.6_P4_Release`) — [firmware/dumps/ta1480_10.02.17.00](firmware/dumps/ta1480_10.02.17.00)
-- [x] ✅ Reverse-engineer hardware peripherals (Keypad matrix, GC9307/GC9104 SPI LCDs, PMIC SC2720 flashlight/vibrator, Audio PA)
-- [x] ✅ Find application loader architecture (monolithic native C in `user.bin`; no dynamic J2ME/MRE loader) — [docs/application-layer.md](docs/application-layer.md)
-- [x] ✅ Execute custom code safely (volatile DRAM payloads via FDL1; zero NAND flash writes) — [docs/custom-code-execution.md](docs/custom-code-execution.md)
-- [ ] Modification of MOCOR RTOS framework (`user.bin` / `kernel.bin`)
-- [ ] Untethered execution: Running custom code from NAND flash (custom bootloader / custom firmware)
+Hardware documentation, BootROM protocol analysis, MOCOR firmware reverse engineering, and safe bare-metal custom code execution on the **Nokia 2660 Flip (TA-1480)** 4G feature phone.
 
 <div align="center">
   <br>
-  <img src="docs/images/nokia_2660_hello_world.jpg" width="380" alt="Nokia 2660 Flip physical hardware running custom bare-metal Hello World payload">
+  <img src="docs/images/nokia_2660_hello_world.jpg" width="400" alt="Nokia 2660 Flip physical hardware running custom bare-metal Hello World payload">
   <p><em>Physical hardware verification: Bare-metal "Hello World" payload executing in volatile DRAM on the Nokia 2660 Flip (TA-1480) 2.8" QVGA screen.</em></p>
   <br>
 </div>
 
-## Repo map
+---
 
-| Path | What belongs here |
-|------|-------------------|
-| [`docs/`](docs/) | Human findings (device, boot, flash, USB, hardware, …) |
-| [`firmware/`](firmware/) | PAC metadata + **extracted manifests** (binaries are gitignored) |
-| [`tools/`](tools/) | Scripts (`extract_pac.py`, …) and bare-metal RAM payloads |
-| [`ghidra/`](ghidra/) | How to import; local Ghidra DBs are gitignored |
-| [`captures/`](captures/) | Guidance for USB/UART/photos |
+## 🎯 Project Mission
 
-## Quick start
+The **Nokia 2660 Flip** is a modern 4G VoLTE flip phone powered by the **Unisoc T107 (UMS9117)** chipset running Spreadtrum's **MOCOR** RTOS.
+
+Our goal is to thoroughly document the platform internals, map out peripheral register controls, understand the boot and firmware verification chains, and pioneer **custom firmware and homebrew execution** on modern feature phones.
+
+> [!TIP]
+> **Zero Brick Risk:** All custom code demonstrations and diagnostic tools in this repository execute strictly in **volatile DRAM** (`0x80100000`) via USB download mode (FDL1). **Zero bytes are written to onboard NAND flash.** Unplugging the USB cable and reseating the battery immediately returns the device to 100% stock condition.
+
+---
+
+## ⚡ Current Milestones & Status
+
+- [x] ✅ **Chipset & USB Identification:** Reverse-engineered BootROM BSL handshake (`1782:4D00`) and normal Mass Storage mode (`1782:4D01`).
+- [x] ✅ **Firmware Package Unpacking:** Fully mapped Unisoc `BP_R1.0.0` PAC archive structure and built automated extractor tool (`tools/extract_pac.py`).
+- [x] ✅ **Boot & Download Protocol Mapping:** Documented complete FDL1 $\to$ FDL2 download sequence and `boot0` $\to$ `boot1` on-device boot chain ([docs/boot-process.md](docs/boot-process.md)).
+- [x] ✅ **Clean Reference Dump:** Complete partition dump from authentic physical hardware (TA-1480, SW `10.02.17.00`, HW3.0) — [firmware/dumps/ta1480_10.02.17.00/](firmware/dumps/ta1480_10.02.17.00/).
+- [x] ✅ **Peripheral Hardware Reverse Engineering:**
+  - **Displays:** Dual SPI LCD controllers (Main 2.8" QVGA GC9307 & Outer 1.77" QQVGA GC9104).
+  - **Input:** 4×5 APB Keypad Matrix scanner (`0x40250000`) and PMIC EIC Power button decoder (`0x40608280`).
+  - **Power & Aux:** SC2720 PMIC rear torch LED sink (`0x40608df4`) and ERM haptic vibrator LDO (`0x40608e00`).
+  - **Audio:** External loudspeaker PA gate (GPIO 31) and PMIC audio subsystem clocks (`0x40608c08`).
+- [x] ✅ **Application Layer Discovery:** Analyzed MOCOR monolithic C architecture in `user.bin` ([docs/application-layer.md](docs/application-layer.md)).
+- [x] ✅ **Tethered Custom Code Execution:** Bare-metal ARMv7-A execution in volatile DRAM with full hardware control ([docs/custom-code-execution.md](docs/custom-code-execution.md)).
+- [ ] 🔄 **Untethered Execution:** Modifying NAND flash boot chain / MOCOR RTOS (`user.bin` / `kernel.bin`) for standalone homebrew.
+
+---
+
+## 📱 Hardware Reference (TA-1480)
+
+Captured via dialer code **`*#0000#`** on physical reference hardware:
+
+| Parameter | Specification | Details |
+|-----------|---------------|---------|
+| **Device Model** | Nokia 2660 Flip | Form factor: Clamshell / Dual-screen |
+| **Type Designator** | `TA-1480` | Related regional SKUs: TA-1469, TA-1474, TA-1711 |
+| **Hardware ID** | **HW3.0** | Board revision |
+| **Software Version** | `10.02.17.00` | MOCOR OS build `MOCOR_20A_MP_W22.04.6_P4_Release` |
+| **NDT Code** | `MH_13ARA80IN00_0` | Indian market SKU |
+| **SoC / Chipset** | Unisoc T107 (`UMS9117`) | ARM Cortex-A7 single core @ up to 1.0 GHz |
+| **Auxiliary Cores** | Cortex-M4 (PM) + CEVA DSP | Power Management (`pm_cm4.bin`) & LTE/GSM Baseband |
+| **Memory** | 48 MB LPDDR | Integrated System-in-Package (SiP) |
+| **Storage** | 128 MB NAND Flash | Partitioned for Boot, Kernel, MOCOR OS, NV, and U-Disk |
+| **Main Display** | 2.8" QVGA (240×320) | SPI interface, GC9307 controller |
+| **Cover Display** | 1.77" QQVGA (128×160) | SPI interface, GC9104 controller |
+| **Power Management** | Unisoc SC2720 PMIC | Controls LDO rails, battery charging, flashlight, haptics |
+
+*Full details: [docs/device.md](docs/device.md) and [docs/hardware.md](docs/hardware.md).*
+
+---
+
+## 🎮 Interactive Payloads & Demos
+
+You can test custom code on your own Nokia 2660 Flip right now without modifying flash memory:
+
+```text
+Host PC (spd_dump) ──USB──> [BootROM 1782:4D00] ──loads──> [FDL1 in SRAM] ──executes──> [Custom Payload in DDR]
+```
+
+### Prebuilt Test Payloads
+
+All precompiled payloads reside in [`tools/ram_payload/`](tools/ram_payload/):
+
+| Runner Script | Description |
+|---------------|-------------|
+| [`run_hello_world.sh`](tools/ram_payload/run_hello_world.sh) | Initializes GC9307 SPI controller, clears frame, renders text on 2.8" LCD |
+| [`run_keypad_test.sh`](tools/ram_payload/run_keypad_test.sh) | Real-time interactive diagnostic dashboard showing all keypad buttons & PMIC power key |
+| [`run_flashlight_test.sh`](tools/ram_payload/run_flashlight_test.sh) | Cycles the SC2720 PMIC rear white LED through variable brightness levels |
+| [`run_haptics_test.sh`](tools/ram_payload/run_haptics_test.sh) | Tests ERM vibration motor pulse sequences and strength profiles via LDO_VIBR |
+| [`run_audio_test.sh`](tools/ram_payload/run_audio_test.sh) | Ungates audio clock (`0x40608c08`) and probes GPIO 31 external PA amplifier |
+
+### Running a Payload
+
+1. Disconnect phone from USB and remove the battery.
+2. Run the payload runner script (e.g. for Hello World):
+   ```bash
+   ./tools/ram_payload/run_hello_world.sh
+   ```
+3. While the script displays `Waiting for connection...`, hold down the **`*`** (Asterisk) key on the keypad and plug in the USB cable.
+4. Keep holding **`*`** for 1–2 seconds until the BootROM handshakes, then release. The screen will illuminate with your payload!
+
+---
+
+## 📚 Documentation Index
+
+Our research findings are structured into focused, technical references:
+
+### 🔌 Hardware & Peripherals
+* [**Hardware Overview**](docs/hardware.md) — Chipset specs, auxiliary cores, screen controllers, pin assignments.
+* [**Keypad Matrix Controller**](docs/keypad-matrix.md) — 4×5 matrix scanner registers, PMIC EIC power key decoder, keymap tables.
+* [**Flashlight (Rear Torch)**](docs/flashlight.md) — SC2720 PMIC current sink (`0x40608df4`), duty cycle calculation, disassembly.
+* [**Haptic Vibration Subsystem**](docs/haptics.md) — SC2720 `LDO_VIBR` voltage regulation (`0x40608e00`) and pulse timing.
+* [**Audio Subsystem & PA**](docs/audio-subsystem.md) — Speaker PA enable (GPIO 31), PMIC Line-Out, VBC codec, and clock routing.
+* [**USB Enumeration & Modes**](docs/usb-enumeration.md) — Raw macOS descriptor dumps for Normal U-Disk (`1782:4D01`) and BootROM (`1782:4D00`).
+
+### 🚀 Boot & Firmware Internals
+* [**Boot Process & Chain**](docs/boot-process.md) — FDL1/FDL2 download flow, `DHTB` header verification, `boot0`/`boot1` NAND stages.
+* [**BootROM Behavior**](docs/bootrom.md) — Download-mode triggers, BSL framing, watchdog timeouts, security checks.
+* [**Flash Layout & Partitions**](docs/flash-layout.md) — NAND base addresses (`0x8000000x` / `0x9000000x`), partition boundaries, PAC mapping.
+* [**Memory Map**](docs/memory-map.md) — SRAM (`0x00006200`), DDR execution layout (`0x80100000`), MMU tables, MOCOR tasks.
+* [**Firmware Provenance & PAC**](firmware/readme.md) — PAC image hashes, extraction instructions, stock partition inventory.
+
+### 💻 Software & Execution Architecture
+* [**Application Layer Architecture**](docs/application-layer.md) — MOCOR window system, event loop, dynamic loader analysis.
+* [**Custom Code Execution Guide**](docs/custom-code-execution.md) — Bare-metal linker scripts, toolchain setup, payload entry points.
+* [**Community Findings & Tips**](docs/community-findings.md) — Boot key shortcuts, dialer codes, safe firmware dump walkthrough.
+* [**Hidden Dialer Codes**](docs/hidden-codes.md) — Factory test menus, software build verification codes.
+
+---
+
+## 🗂️ Repository Structure
+
+```text
+Nokia-2660-RE/
+├── README.md               # Main project overview & quickstart
+├── CONTRIBUTING.md         # Guidelines for contributing research/code
+├── DISCLAIMER.md           # Safety & legal disclaimers
+├── LICENSE                 # MIT License
+├── requirements.txt        # Optional Python dependencies (Capstone)
+│
+├── docs/                   # Technical documentation & register maps
+│   ├── hardware.md         # Hardware specifications & components
+│   ├── boot-process.md     # BootROM & stage loader execution flow
+│   ├── flash-layout.md     # Partition table & flash geometry
+│   ├── keypad-matrix.md    # Keypad matrix controller registers
+│   ├── custom-code-execution.md # Bare-metal homebrew execution guide
+│   └── images/             # Photos & hardware captures
+│
+├── firmware/               # Firmware provenance, hashes & manifests
+│   ├── readme.md           # PAC samples, hashes, and verification info
+│   ├── dumps/              # Verified partition manifests from real devices
+│   └── extracted/          # Extracted partition XML & headers (binaries gitignored)
+│
+├── tools/                  # Python & shell utilities
+│   ├── readme.md           # Tools guide & dependencies
+│   ├── extract_pac.py      # Unisoc BP_R1.0.0 PAC archive unpacker
+│   ├── dump_device.sh      # Firmware partition dumping helper
+│   ├── spd_dump            # Unisoc BootROM/FDL protocol tool (local binary)
+│   └── ram_payload/        # Bare-metal payload source code, headers & runners
+│
+├── ghidra/                 # Reverse-engineering project setup
+│   ├── readme.md           # Ghidra loader base addresses & script guide
+│   └── scripts/            # Headless analysis scripts
+│
+└── captures/               # Hardware trace guides (USB, UART, logic analyser)
+    └── readme.md           # Capture naming rules & git policy
+```
+
+---
+
+## 🛠️ Quick Start
+
+### 1. Prerequisites
+
+* **Host Machine:** macOS (Apple Silicon/Intel) or Linux.
+* **Python 3.8+** (for PAC extraction and analysis scripts).
+* **ARM Toolchain** (optional, only needed if compiling payloads from scratch):
+  ```bash
+  # macOS
+  brew install arm-none-eabi-gcc
+  # Ubuntu / Debian
+  sudo apt install gcc-arm-none-eabi
+  ```
+
+### 2. Setup
 
 ```bash
 git clone https://github.com/lovelytingy/Nokia-2660-RE.git
 cd Nokia-2660-RE
-python3 -m pip install -r requirements.txt   # optional (Capstone)
+python3 -m pip install -r requirements.txt   # Optional (Capstone disassembler)
+```
 
-# Download the PAC (see firmware/readme.md), place as:
-#   firmware/v23_update_Nokia_2660.pac
+### 3. Unpacking Firmware
+
+If you have acquired an official PAC firmware update file (e.g. `v23_update_Nokia_2660.pac`):
+
+```bash
 python3 tools/extract_pac.py firmware/v23_update_Nokia_2660.pac
 ```
 
-Useful reading order:
+This extracts all component partitions into `firmware/extracted/v23_update_Nokia_2660/` along with `manifest.csv` containing cryptographic SHA-256 hashes.
 
-1. [docs/device.md](docs/device.md) — reference phone (`*#0000#`)  
-2. [docs/community-findings.md](docs/community-findings.md) — boot key, dialer codes & safe dump instructions  
-3. [firmware/readme.md](firmware/readme.md) — sample hashes + extract  
-4. [firmware/readme.md](firmware/readme.md) / [docs/flash-layout.md](docs/flash-layout.md)  
-5. [docs/boot-process.md](docs/boot-process.md) / [docs/bootrom.md](docs/bootrom.md)  
-6. [docs/keypad-matrix.md](docs/keypad-matrix.md) — hardware keypad matrix & PMIC power button decoder  
-7. [docs/flashlight.md](docs/flashlight.md) — SC2720 PMIC rear torch LED (`0x40608df4`)  
-8. [docs/haptics.md](docs/haptics.md) — SC2720 PMIC ERM vibration motor (`0x40608e00`)  
-9. [docs/audio-subsystem.md](docs/audio-subsystem.md) — speaker PA (GPIO 31) & PMIC Line-Out / Voice Band Codec (VBC)  
-10. [docs/application-layer.md](docs/application-layer.md) — MOCOR application & window architecture  
-11. [docs/custom-code-execution.md](docs/custom-code-execution.md) — Bare-metal RAM payloads & homebrew execution  
-12. [ghidra/readme.md](ghidra/readme.md) — load FDL/boot0 in Ghidra  
+---
 
-## Tools (recommended)
+## 🌐 Host OS & Compatibility
 
-| Tool | Why |
-|------|-----|
-| Python 3 | PAC extract + triage |
-| [Ghidra](https://ghidra-sre.org/) | ARM Thumb RE of loaders |
-| Capstone (`requirements.txt`) | Quick disasm without Ghidra |
-| binwalk (optional) | Scan larger images for embedded blobs |
-| USB capture (Wireshark / usbmon) | Download-mode protocol |
+This repository is actively developed and tested primarily on **macOS** (Darwin / Apple Silicon).
 
-```bash
-# macOS examples
-brew install binwalk          # optional
-brew install --cask ghidra    # if not already installed
-```
+* **macOS:** Native support via `libusb` (`brew install libusb pkg-config`). No kernel extensions required for BootROM communication.
+* **Linux:** Fully supported. Requires `udev` rules granting non-root access to Spreadtrum USB vendor ID `1782`.
+* **Windows:** Requires Spreadtrum SCI USB drivers (`SciU2S`) and Windows builds of `spd_dump.exe`.
 
-## Host Environment & OS Compatibility
+*Contributions improving automated runner scripts across Linux and Windows are warmly welcomed!*
 
-> [!NOTE]
-> **Primary Host Environment: macOS**  
-> This project is actively developed and tested on **macOS** (Apple Silicon / Darwin).
->
-> Please note if you are using another operating system:
-> - **Script & Command Differences:** Some shell snippets, USB polling scripts, and system utilities (such as `ioreg` or `system_profiler`) are macOS-specific and will need to be adapted for Linux (e.g. `lsusb`, `udev`) or Windows (PowerShell, Device Manager).
-> - **OS-Specific Tools & Drivers:**
->   - **macOS:** Uses `libusb` (`brew install libusb pkg-config`). No kernel extensions needed for BootROM mode.
->   - **Linux:** Requires `udev` rules for Spreadtrum/Unisoc vendor ID `1782` and building tools like `spreadtrum_flash` via native `make`.
->   - **Windows:** Requires Spreadtrum USB / SCI / Jungo drivers (`SciU2S` driver package) and Windows builds of utilities (e.g. `spd_dump64.exe`, ResearchDownload, or SPD Upgrade Tool).
-> - **Contributions:** PRs adding or improving cross-platform compatibility for Linux and Windows are very welcome!
+---
 
-## Acknowledgments & Credits
+## 🤝 Acknowledgments & Credits
 
-This research, reverse engineering, and bare-metal hardware execution relies heavily on the work of the open-source feature phone and Unisoc/Spreadtrum research community:
+This research builds upon invaluable foundational work by the open-source Unisoc/Spreadtrum community:
 
 * **[Ilya Kurdyukov (ilyakurdyukov)](https://github.com/ilyakurdyukov)**:
-  - **[`spreadtrum_flash`](https://github.com/ilyakurdyukov/spreadtrum_flash)** (`spd_dump`): The foundational reverse-engineered download-mode protocol implementation for Spreadtrum/Unisoc SoCs, enabling BootROM handshakes, FDL loading, memory dumps, and DRAM injection. Also authored `fphelper_t117` for extracting pinmaps and keymaps from kernel dumps.
-  - **[`fpdoom`](https://github.com/ilyakurdyukov/fpdoom)**: Embedded port of Doom for feature phones, providing the bare-metal hardware drivers for the Nokia 2660 Flip's GC9307/GC9104 SPI LCD controllers, SC2720 PMIC backlight current sink registers, and the USB `libc_server` bridge.
-* **[id Software](https://www.idsoftware.com/)**: For open-sourcing the legendary [DOOM](https://github.com/id-Software/DOOM) engine and the shareware `doom1.wad`.
-* **[Capstone Disassembly Framework](https://www.capstone-engine.org/)** ([`capstone-engine/capstone`](https://github.com/capstone-engine/capstone)): Used for automated verification and disassembly of compiled ARMv7-A bare-metal payloads.
-* **[NSA Ghidra](https://ghidra-sre.org/)** ([`NationalSecurityAgency/ghidra`](https://github.com/NationalSecurityAgency/ghidra)): Instrumental for static analysis and decompilation of MOCOR RTOS binaries, bootloader stages (`boot0`/`boot1`), and kernel verification routines.
-* **The Spreadtrum / Unisoc Feature Phone Homebrew Community**: For documenting chip errata, boot keys, and flash structures across the SC6531 and UMS9117 series.
+  - **[`spreadtrum_flash`](https://github.com/ilyakurdyukov/spreadtrum_flash)** (`spd_dump`): The foundational reverse-engineered download-mode protocol implementation for Spreadtrum/Unisoc SoCs, enabling BootROM handshakes, FDL loading, memory dumps, and DRAM injection.
+  - **[`fpdoom`](https://github.com/ilyakurdyukov/fpdoom)**: Embedded port of Doom for feature phones, providing reference bare-metal hardware drivers for the GC9307/GC9104 SPI LCDs, PMIC backlight registers, and USB `libc_server`.
+* **[id Software](https://www.idsoftware.com/)**: For the legendary [DOOM](https://github.com/id-Software/DOOM) engine and shareware `doom1.wad`.
+* **[Capstone Disassembly Framework](https://www.capstone-engine.org/)**: Automated validation and disassembly of compiled ARMv7-A bare-metal payloads.
+* **[NSA Ghidra](https://ghidra-sre.org/)**: Static analysis and decompilation of MOCOR RTOS binaries, bootloader stages (`boot0`/`boot1`), and kernel verification routines.
+* **The Feature Phone Reverse-Engineering Community**: For documenting chip errata, boot keys, and flash structures across the SC6531 and UMS9117 series.
 
-## Disclaimer
+---
 
-**No warranty. No guarantee. We are not responsible if your device bricks.**
+## ⚠️ Disclaimer
 
-This project is research/education only. Flashing or modifying phones can permanently destroy them, void warranties, or cause data loss. You accept **full responsibility** for anything you do with these notes or tools.
+**No warranty. No guarantee. We are not responsible for bricked or damaged devices.**
 
-Full text: [DISCLAIMER.md](DISCLAIMER.md).
+This repository is published solely for educational and research purposes. Flashing or modifying phones carries inherent risk. You assume **full responsibility** for any actions taken using the information or tools provided here.
 
-Do not share IMEI, calibration, or personal data from NV dumps.
+See [DISCLAIMER.md](DISCLAIMER.md) for full terms. Never redistribute proprietary firmware binaries or publish private NV calibration data (IMEI, MAC addresses).
 
-## License
+---
 
-Code and documentation in this repository are released under the [MIT License](LICENSE).
+## 📄 License
 
-Upstream firmware remains the property of its respective owners — **do not** redistribute proprietary PAC/images in git; link + hash only.
+Code and documentation created in this repository are released under the [MIT License](LICENSE).  
+Upstream firmware binaries remain the intellectual property of their respective owners.
