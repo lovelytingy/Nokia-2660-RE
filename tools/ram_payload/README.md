@@ -19,14 +19,18 @@ All payloads in this directory run **strictly in volatile DRAM** at `0x80100000`
 tools/ram_payload/
 ├── run_hello_world.sh          # Minimal display demo: launches visual "Hello World" card on physical LCD
 ├── run_keypad_test.sh          # Keypad diagnostic runner: interactive real-time keypad matrix & PMIC driver
-├── run_audio_test.sh           # Audio & haptics runner: interactive speaker PA & PMIC vibrator driver
+├── run_flashlight_test.sh      # Flashlight runner: interactive SC2720 PMIC LED torch & SOS beacon driver
+├── run_haptics_test.sh         # Haptics runner: interactive ERM motor & PMIC LDO vibration driver
+├── run_audio_test.sh           # Audio runner: speaker PA & tone synthesizer
 ├── run_ram_payload.sh          # Minimal runner: executes 616-byte raw ARM assembly payload
 ├── README.md                   # This documentation
 │
 ├── bin/                        # Precompiled binary payloads & host utilities
 │   ├── hello_world.bin         # Clean graphical Hello World payload (23 KB)
 │   ├── keypad_test.bin         # Interactive hardware keypad diagnostic payload (26 KB)
-│   ├── audio_test.bin          # Interactive speaker PA & PMIC haptic payload (25 KB)
+│   ├── flashlight_test.bin     # Interactive rear torch & SOS optical beacon payload (24 KB)
+│   ├── haptics_test.bin        # Interactive ERM motor & haptic patterns payload (24 KB)
+│   ├── audio_test.bin          # Interactive speaker PA tone payload (25 KB)
 │   ├── baremetal_asm.bin       # Minimal 616-byte raw ARM assembly payload
 │   └── libc_server             # Native macOS host USB serial / display server
 │
@@ -45,8 +49,18 @@ tools/ram_payload/
 │   │   ├── font8x16.h          # Scaled 8x16 ASCII bitmap font table
 │   │   └── build.sh            # Automated compilation script (arm-none-eabi-gcc)
 │   │
-│   ├── audio_test/             # C speaker audio & PMIC haptic diagnostic tool
-│   │   ├── audio_test_main.c   # GPIO 31 square-wave tones, melodies, PMIC haptic pulse & SOS
+│   ├── flashlight_test/        # C flashlight / rear torch diagnostic tool
+│   │   ├── flashlight_test_main.c # SC2720 PMIC 0x40608df4 driver, brightness, strobe & SOS beacon
+│   │   ├── font8x16.h          # Scaled 8x16 ASCII bitmap font table
+│   │   └── build.sh            # Automated compilation script (arm-none-eabi-gcc)
+│   │
+│   ├── haptics_test/           # C haptic vibration motor diagnostic tool
+│   │   ├── haptics_test_main.c # SC2720 PMIC 0x406081b8 & GPIO 45 motor drivers & haptic pulses
+│   │   ├── font8x16.h          # Scaled 8x16 ASCII bitmap font table
+│   │   └── build.sh            # Automated compilation script (arm-none-eabi-gcc)
+│   │
+│   ├── audio_test/             # C speaker audio diagnostic tool
+│   │   ├── audio_test_main.c   # GPIO 31 square-wave tones & melody playback
 │   │   ├── font8x16.h          # Scaled 8x16 ASCII bitmap font table
 │   │   └── build.sh            # Automated compilation script (arm-none-eabi-gcc)
 │   │
@@ -101,8 +115,69 @@ For detailed register maps and key decoding formulas, see [`docs/Keypad Matrix.m
 
 ---
 
-### 3. Speaker Audio & PMIC Haptics Diagnostic Tool
-Initializes the external speaker Power Amplifier on **GPIO 31** (`0x40280080`, bit 15) and the SC2720 PMIC haptic motor driver (`0x40608df4`), presenting an interactive soundboard and haptics tester with a live LCD dashboard:
+### 3. Flashlight & Rear Torch Diagnostic Tool
+Controls the SC2720 PMIC White LED Current Sink Driver on register **`0x40608df4`**, featuring variable brightness regulation (0..15), camera flashes, strobes, and emergency optical beacons:
+
+```bash
+./tools/ram_payload/run_flashlight_test.sh
+```
+
+* **Interactive Controls:**
+  - `[1]`: Toggle Flashlight ON / OFF (continuous torch)
+  - `[2]`: Short Camera Flash (50 ms)
+  - `[3]` / `[4]` / `[5]`: Timed Pulses (200 ms, 500 ms, 1.0 s)
+  - `[6]` / `[7]`: Fast Strobe (10x 40ms) / Slow Strobe (5x 120ms)
+  - `[8]`: Single Strobe Tick (25 ms)
+  - `[9]`: **Emergency SOS Morse Code Optical Beacon** (`... --- ...`)
+  - `[0]`: Full Torch ON at Maximum Brightness (Level 15)
+  - `[*]`: Turn OFF Torch immediately
+  - `[Vol+]` / `[Vol-]`: Step Brightness Level (0..15) with visual feedback tick
+  - Hold **Power / End** for ~1 second to cleanly exit.
+* Supports both displays:
+  ```bash
+  # Inner Main Screen (2.8" 240x320)
+  ./tools/ram_payload/run_flashlight_test.sh
+
+  # Outer Cover Screen (1.77" 128x160)
+  ./tools/ram_payload/run_flashlight_test.sh cover
+  ```
+
+For detailed register documentation and disassembly analysis, see [`docs/Flashlight & Haptics.md`](file:///Users/lovelytingy/Documents/Personal-Projects/Nokia-2660-RE/docs/Flashlight%20%26%20Haptics.md).
+
+---
+
+### 4. Haptics & Vibrator Motor Diagnostic Tool
+Drives the Eccentric Rotating Mass (ERM) vibration motor via the SC2720 PMIC motor LDO registers (`0x406081b8` / `0x40608180`) and APB GPIO Pin 45 (Bank 2, Bit 13 @ `0x40280100`):
+
+```bash
+./tools/ram_payload/run_haptics_test.sh
+```
+
+* **CRITICAL POWER REQUIREMENT:** The ERM vibration motor draws high peak current from **`VBAT` (the physical battery contacts)**. Start the USB BootROM handshake with battery removed; once Stage 1 completes, **pop the battery into the phone** while USB remains plugged in!
+* **Interactive Controls:**
+  - `[1]` / `[2]`: Tactile Click (40 ms) / Double Tick (60+60 ms)
+  - `[3]` / `[4]`: Medium Buzz (200 ms) / Long Buzz (400 ms)
+  - `[5]`: Heavy Rumble (750 ms)
+  - `[6]`: Heartbeat Pattern (lub-dub sequence)
+  - `[7]` / `[8]`: Continuous Motor ON (test bench) / Stop Motor
+  - `[9]`: **SOS Morse Code Vibration** (`... --- ...`)
+  - `[0]`: Heavy Blast (1.0 s)
+  - `[Vol+]` / `[Vol-]`: Adjust Vibration Intensity (0..15)
+* Supports both displays:
+  ```bash
+  # Inner Main Screen (2.8" 240x320)
+  ./tools/ram_payload/run_haptics_test.sh
+
+  # Outer Cover Screen (1.77" 128x160)
+  ./tools/ram_payload/run_haptics_test.sh cover
+  ```
+
+For register details, see [`docs/Flashlight & Haptics.md`](file:///Users/lovelytingy/Documents/Personal-Projects/Nokia-2660-RE/docs/Flashlight%20%26%20Haptics.md).
+
+---
+
+### 5. Speaker Audio Diagnostic Tool
+Initializes the external speaker Power Amplifier on **GPIO 31** (`0x40280080`, bit 15), testing square-wave tones, siren chirps, and the iconic Nokia Tune:
 
 ```bash
 ./tools/ram_payload/run_audio_test.sh
@@ -114,12 +189,8 @@ Initializes the external speaker Power Amplifier on **GPIO 31** (`0x40280080`, b
   - `[5]`: **Iconic Nokia Ringtone** (*Gran Vals* 13-note melody)
   - `[6]`: Super Mario coin sound effect
   - `[7]`: Frequency sweep / chirp siren (300 Hz -> 2500 Hz)
-  - `[8]`: Haptic tactile click (50 ms pulse)
-  - `[9]`: **SOS Morse Code** emergency vibration sequence (`... --- ...`)
-  - `[0]`: Heavy vibration rumble (400 ms pulse)
   - `[#]`: Super Mario theme intro jingle
-  - `[*]`: Mute / stop all audio and vibration
-  - `[Vol+]` / `[Vol-]`: Adjust vibrator intensity level (0 to 15) with haptic feedback tick
+  - `[*]`: Mute / stop all audio
   - Hold **Power / End** for ~1 second to cleanly exit.
 * Supports both displays:
   ```bash
@@ -130,11 +201,11 @@ Initializes the external speaker Power Amplifier on **GPIO 31** (`0x40280080`, b
   ./tools/ram_payload/run_audio_test.sh cover
   ```
 
-For detailed register documentation and disassembly analysis, see [`docs/Audio Subsystem.md`](file:///Users/lovelytingy/Documents/Personal-Projects/Nokia-2660-RE/docs/Audio%20Subsystem.md).
+For detailed register documentation, see [`docs/Audio Subsystem.md`](file:///Users/lovelytingy/Documents/Personal-Projects/Nokia-2660-RE/docs/Audio%20Subsystem.md).
 
 ---
 
-### 4. Minimal Bare-Metal Assembly Test
+### 6. Minimal Bare-Metal Assembly Test
 Executes a 1,000,000-cycle loop in DRAM, writes hardware marker `0x14802660` to `0x80700100`, transmits `BSL_REP_ACK` (`0x80`) over USB via FDL1's `send_ack`, and returns cleanly:
 
 ```bash
@@ -160,25 +231,31 @@ All payload runners follow the standard Unisoc BootROM handshake procedure:
 All builds run **completely offline** using the vendored toolchain in `vendor/fpdoom`. No `/tmp` or internet access is needed.
 
 ### Rebuilding "Hello World" (`hello_world.bin`)
-Requires `arm-none-eabi-gcc` (install via `brew install arm-none-eabi-gcc` on macOS):
 ```bash
 ./tools/ram_payload/src/hello_world/build.sh
 ```
 
 ### Rebuilding Keypad Diagnostic Tool (`keypad_test.bin`)
-Requires `arm-none-eabi-gcc`:
 ```bash
 ./tools/ram_payload/src/keypad_test/build.sh
 ```
 
-### Rebuilding Audio & Haptics Diagnostic Tool (`audio_test.bin`)
-Requires `arm-none-eabi-gcc`:
+### Rebuilding Flashlight Diagnostic Tool (`flashlight_test.bin`)
+```bash
+./tools/ram_payload/src/flashlight_test/build.sh
+```
+
+### Rebuilding Haptics Diagnostic Tool (`haptics_test.bin`)
+```bash
+./tools/ram_payload/src/haptics_test/build.sh
+```
+
+### Rebuilding Audio Diagnostic Tool (`audio_test.bin`)
 ```bash
 ./tools/ram_payload/src/audio_test/build.sh
 ```
 
 ### Rebuilding Minimal Assembly (`baremetal_asm.bin`)
-Uses native system `clang` (no cross-compiler needed):
 ```bash
 python3 tools/ram_payload/src/baremetal_asm/build_payload.py
 ```

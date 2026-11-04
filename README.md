@@ -71,10 +71,11 @@ Useful reading order:
 4. [docs/firmware.md](docs/firmware.md) / [docs/Flash Layout.md](docs/Flash%20Layout.md)  
 5. [docs/Boot Process.md](docs/Boot%20Process.md) / [docs/bootrom.md](docs/bootrom.md)  
 6. [docs/Keypad Matrix.md](docs/Keypad%20Matrix.md) — hardware keypad matrix & PMIC power button decoder  
-7. [docs/Audio Subsystem.md](docs/Audio%20Subsystem.md) — speaker PA (GPIO 31) & SC2720 PMIC haptic motor  
-8. [docs/Application Layer.md](docs/Application%20Layer.md) — MOCOR application & window architecture  
-9. [docs/Custom Code Execution.md](docs/Custom%20Code%20Execution.md) — Bare-metal RAM payloads & homebrew execution  
-10. [ghidra/readme.md](ghidra/readme.md) — load FDL/boot0 in Ghidra  
+7. [docs/Flashlight & Haptics.md](docs/Flashlight%20%26%20Haptics.md) — SC2720 PMIC rear torch LED & ERM vibration motor  
+8. [docs/Audio Subsystem.md](docs/Audio%20Subsystem.md) — speaker PA (GPIO 31) & Voice Band Codec (VBC)  
+9. [docs/Application Layer.md](docs/Application%20Layer.md) — MOCOR application & window architecture  
+10. [docs/Custom Code Execution.md](docs/Custom%20Code%20Execution.md) — Bare-metal RAM payloads & homebrew execution  
+11. [ghidra/readme.md](ghidra/readme.md) — load FDL/boot0 in Ghidra  
 
 ## Tools (recommended)
 

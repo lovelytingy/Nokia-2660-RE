@@ -31,23 +31,21 @@ The audio and haptic feedback architecture of the Nokia 2660 Flip consists of th
                       |         Unisoc SC2720 PMIC            |
                       |                                       |
                       |  +---------------------------------+  |
-                      |  | Vibrator Motor Control LDO      |  |
-                      |  | ADI Register: 0x40608df4        |  |
-                      |  +-----------------+---------------+  |
-                      |                    |                  |
-                      |  +-----------------v---------------+  |
                       |  | Analog Audio Codec / Mixer      |  |
                       |  | Mixer Table: 0x81622a88         |  |
+                      |  | Differential Audio DAC Outputs  |  |
                       |  +-----------------+---------------+  |
                       +--------------------|------------------+
-                                           |
-                +--------------------------+--------------------------+
-                |                                                     |
-                v                                                     v
-   +--------------------------+                         +--------------------------+
-   |   External Speaker PA    |                         |  ERM Haptic Vib Motor    |
-   |   (Driven via GPIO 31)   |                         |  (Driven via SC2720 LDO) |
-   +--------------------------+                         +--------------------------+
+                                           | Audio Differential Signals (AU_HPL / AU_HPR)
+                                           v
+                             +--------------------------+
+                             |   External Speaker PA    |
+                             |   (Enable on GPIO 31)    |
+                             |   Power: VBAT (~3.8V)    |
+                             +--------------------------+
+
+> [!NOTE]
+> For the **Rear Flashlight / Torch LED** (`0x40608df4`) and **Haptic Vibration Motor** (`0x406081b8` / GPIO 45), see the dedicated reference [`docs/Flashlight & Haptics.md`](file:///Users/lovelytingy/Documents/Personal-Projects/Nokia-2660-RE/docs/Flashlight%20%26%20Haptics.md).
 ```
 
 ---
@@ -55,11 +53,18 @@ The audio and haptic feedback architecture of the Nokia 2660 Flip consists of th
 ## 2. External Speaker Power Amplifier (PA)
 
 ### Hardware Identification
-The Nokia 2660 Flip utilizes an external high-efficiency Class-D speaker power amplifier driven by the Application Processor GPIO bus.
+The Nokia 2660 Flip utilizes an external high-efficiency Class-D speaker power amplifier (Awinic AW-series) driven by the Application Processor GPIO bus.
 
 * **Control Line:** APB **GPIO 31** (Pin 31, Bank 1, Bit 15).
 * **Firmware Function:** `codec_ext_pa_ctl` in `kernel.bin` at virtual address `0x80b34544`.
-* **Kernel Reference:** References GPIO 31 configured in 1-wire pulse / square-wave mode to power and modulate the external speaker.
+* **Kernel Reference:** References GPIO PROD ID 31 (`0x1f`) configured in 1-wire pulse mode to select gain and enable the amplifier.
+
+> [!IMPORTANT]
+> **Power Architecture & Battery Requirement (`VBAT`):**
+> * **Power Rail:** The speaker Class-D PA draws high peak currents (up to 500mA–1A) and is connected directly to **`VBAT` (the physical battery spring contacts)**, completely isolated from the USB 5V (`VBUS`) rail to prevent brownouts.
+> * **Without Battery:** If executing payloads over USB with the battery removed, the PA power rail has **0.0 Volts** and the amplifier cannot power the speaker.
+> * **Safe Operation:** Begin USB connection with the battery removed, hold `*` to enter BootROM mode. Once the payload is executing in volatile DRAM, **pop the battery into the phone** to energize the amplifier rail!
+> * **Analog vs. Enable:** GPIO 31 acts as an enable / gain select line. The actual sound waveform is routed differentially from the Unisoc Voice Band Codec (VBC) DAC into the amplifier's inputs.
 
 ### Register Mapping: APB GPIO (Base `0x40280000`)
 GPIO pins on the UMS9117 are grouped into banks of 16 pins (Bank 0: Pins 0..15, Bank 1: Pins 16..31).
