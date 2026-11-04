@@ -45,17 +45,24 @@ tools/ram_payload/
 
 ## Quick Start: Running Payloads
 
-### 1. Graphical "Hello World" Display Test (Recommended)
-Powers on the SC2720 PMIC backlight, initializes the GC9307 SPI display, and draws a glowing "Hello World" screen at 60 FPS:
+### 1. Graphical Keypad Matrix Diagnostic & "Hello World" Test (Recommended)
+Powers on the SC2720 PMIC backlight, initializes the GC9307 SPI display, scans the APB Keypad Matrix (`0x40250000`) and PMIC EIC Power button, and renders a real-time interactive diagnostic screen at 60 FPS:
 
 ```bash
 ./tools/ram_payload/run_hello_world.sh
 ```
 
+* **Interactive Features:**
+  - Real-time detection of any keypad button (digits 0-9, *, #, D-Pad 5-way, Softkeys, Call, Volume, SOS).
+  - Displays key name, hex code, matrix Column/Row, event counter, and recent event history on screen.
+  - Monitors SC2720 PMIC EIC Pin 1 for standalone Power / End button presses.
+  - Press and hold the red **Power / End** key for ~1 second to cleanly exit.
 * To test the outer **Cover Screen (1.77")** instead of the main inner screen:
   ```bash
   ./tools/ram_payload/run_hello_world.sh cover
   ```
+
+For detailed register maps and key decoding formulas, see [`docs/Keypad Matrix.md`](file:///Users/lovelytingy/Documents/Personal-Projects/Nokia-2660-RE/docs/Keypad%20Matrix.md).
 
 ### 2. Minimal Bare-Metal Assembly Test
 Executes a 1,000,000-cycle loop in DRAM, writes hardware marker `0x14802660` to `0x80700100`, transmits `BSL_REP_ACK` (`0x80`) over USB via FDL1's `send_ack`, and returns cleanly:

@@ -16,6 +16,9 @@ fi
 # Ensure headers and font are present
 cp "${SRC_DIR}/hello_world_main.c" "${FPDOOM_DIR}/fptest/main.c"
 cp "${SRC_DIR}/font8x16.h" "${FPDOOM_DIR}/fptest/font8x16.h"
+cp "${SRC_DIR}/elf.h" "${FPDOOM_DIR}/pack_reloc/elf.h"
+cp "${SRC_DIR}/string.h" "${FPDOOM_DIR}/fpdoom/include/string.h"
+cp "${SRC_DIR}/malloc.h" "${FPDOOM_DIR}/fpdoom/include/malloc.h"
 
 echo "[*] Compiling with arm-none-eabi-gcc (Cortex-A7)..."
 make -C "${FPDOOM_DIR}/pack_reloc" CFLAGS="-I."
