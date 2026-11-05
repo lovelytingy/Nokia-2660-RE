@@ -56,6 +56,7 @@ class NokiaGUIEmulator(tk.Tk):
         self.hardware_events = queue.Queue()
         self.screen_queue = queue.Queue(maxsize=10)
         self.reg_queue = queue.Queue(maxsize=10)
+        self.status_queue = queue.Queue()
 
         # Virtual Screen Settings
         self.disp_w = 240
@@ -351,10 +352,8 @@ class NokiaGUIEmulator(tk.Tk):
     def _on_button_click(self, code):
         self.console_text.insert(tk.END, f"[Keypad Input] Key: {code}\n")
         self.console_text.see(tk.END)
+        # Thread-safe queue delivery: worker thread handles hardware injection
         self.key_event_queue.put(code)
-        if self.active_emu:
-            self.active_emu.press_key(code)
-            self.after(150, lambda: self.active_emu.release_key(code) if self.active_emu else None)
 
     def _on_key_press(self, event):
         key_map = {
@@ -381,6 +380,10 @@ class NokiaGUIEmulator(tk.Tk):
             messagebox.showerror("Error", "Please select a valid binary payload or loader first.")
             return
 
+        # Ensure any previous emulation thread is stopped cleanly before starting
+        if self.emu_thread and self.emu_thread.is_alive():
+            self._stop_emulation()
+
         self.running = True
         self.btn_run.config(text="⏸ Pause", bg="#d29922")
         self.status_var.set(f"Running {os.path.basename(self.current_binary)}...")
@@ -391,6 +394,13 @@ class NokiaGUIEmulator(tk.Tk):
 
     def _stop_emulation(self):
         self.running = False
+        if self.active_emu and hasattr(self.active_emu, 'uc') and self.active_emu.uc:
+            try:
+                self.active_emu.uc.emu_stop()
+            except Exception:
+                pass
+        if self.emu_thread and self.emu_thread.is_alive():
+            self.emu_thread.join(timeout=0.6)
         self.btn_run.config(text="▶ Run Payload", bg="#238636")
         self.status_var.set("Emulation stopped.")
 
@@ -445,9 +455,23 @@ class NokiaGUIEmulator(tk.Tk):
 
         emu.uc.hook_add(UC_HOOK_MEM_WRITE, pmic_hook, begin=0x40608df0, end=0x40608e08)
 
-        # 4. Periodic CPU Register Telemetry Hook
+        # 4. Periodic CPU Register Telemetry & Safe Keypad Hook
         def code_hook(uc, address, size, user_data):
             emu.insn_count += 1
+
+            # Process pending keypad events safely within the emulation thread
+            while not self.key_event_queue.empty():
+                try:
+                    k = self.key_event_queue.get_nowait()
+                    emu.press_key(k)
+                    emu.key_release_step = emu.insn_count + 5000
+                except queue.Empty:
+                    break
+
+            if getattr(emu, 'key_release_step', 0) and emu.insn_count >= emu.key_release_step:
+                emu.release_key('')
+                emu.key_release_step = 0
+
             if (emu.insn_count % 2500) == 0:
                 regs = {
                     "R0": uc.reg_read(UC_ARM_REG_R0),
@@ -519,9 +543,8 @@ class NokiaGUIEmulator(tk.Tk):
                 f"  Status:   0x{status:08x}\n"
             )
 
-        self.running = False
-        self.btn_run.config(text="▶ Run Payload", bg="#238636")
-        self.status_var.set("Emulation finished.")
+        # Post finish status to queue (main thread updates Tkinter widgets safely)
+        self.status_queue.put(("finished", f"Emulation finished ({emu.insn_count} instructions)."))
 
     def _poll_queues(self):
         # 1. Flush UART Output
@@ -577,6 +600,17 @@ class NokiaGUIEmulator(tk.Tk):
             for reg_name, val in latest_regs.items():
                 if reg_name in self.reg_labels:
                     self.reg_labels[reg_name].config(text=f"0x{val:08x}")
+
+        # 5. Emulation Status Updates (Handled safely on Tkinter main thread)
+        while not self.status_queue.empty():
+            try:
+                evt, msg = self.status_queue.get_nowait()
+                if evt == "finished":
+                    self.running = False
+                    self.btn_run.config(text="▶ Run Payload", bg="#238636")
+                    self.status_var.set(msg)
+            except queue.Empty:
+                break
 
         # Poll again in 30ms (~33 FPS)
         self.after(30, self._poll_queues)
