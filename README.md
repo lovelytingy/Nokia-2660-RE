@@ -42,6 +42,7 @@ Our goal is to thoroughly document the platform internals, map out peripheral re
 - [x] ✅ **Application Layer Discovery:** Analyzed MOCOR monolithic C architecture in `user.bin` ([docs/application-layer.md](docs/application-layer.md)).
 - [x] ✅ **Tethered Custom Code Execution:** Bare-metal ARMv7-A execution in volatile DRAM with full hardware control ([docs/custom-code-execution.md](docs/custom-code-execution.md)).
 - [x] ✅ **Hardware Secure Boot & eFuse Audit:** Physical audit proved Gate 1 & Gate 2 are active (16-bit eFuse lock mask `0xFFFF` burned in Row 0); on-device boot strictly enforces RSA-2048 verification ([docs/boot-security-verification.md](docs/boot-security-verification.md)).
+- [x] ✅ **Firmware Triage & Static Analysis Suite:** Built automated analysis tools ([`tools/extract_strings.py`](tools/extract_strings.py) & [`tools/mocor-info.py`](tools/mocor-info.py)) to parse DHTB headers, RSA certificate chains, RTOS task tables, 560+ AT commands, and secret dialer codes ([docs/hidden-codes.md](docs/hidden-codes.md)).
 - [ ] 🔄 **Untethered Execution:** Exploring signature bypass, bootloader chain modification, or micro-payload injection from NAND flash.
 
 ---
@@ -126,7 +127,7 @@ Our research findings are structured into focused, technical references:
 * [**Application Layer Architecture**](docs/application-layer.md) — MOCOR window system, event loop, dynamic loader analysis.
 * [**Custom Code Execution Guide**](docs/custom-code-execution.md) — Bare-metal linker scripts, toolchain setup, payload entry points.
 * [**Community Findings & Tips**](docs/community-findings.md) — Boot key shortcuts, dialer codes, safe firmware dump walkthrough.
-* [**Hidden Dialer Codes**](docs/hidden-codes.md) — Factory test menus, software build verification codes.
+* [**Hidden Dialer Codes**](docs/hidden-codes.md) — Complete audit of secret codes: Unisoc Engineer Mode (`*#*#372733#*#`), factory logging toggle (`*#8378*733425*1#`), MMI hardware test, and 30+ language shortcuts.
 
 ---
 
@@ -156,6 +157,8 @@ Nokia-2660-RE/
 ├── tools/                  # Python & shell utilities
 │   ├── readme.md           # Tools guide & dependencies
 │   ├── extract_pac.py      # Unisoc BP_R1.0.0 PAC archive unpacker
+│   ├── extract_strings.py  # String triage & domain categorization tool
+│   ├── mocor-info.py       # DHTB header, RSA chain & MOCOR OS inspector
 │   ├── dump_device.sh      # Firmware partition dumping helper
 │   ├── spd_dump            # Unisoc BootROM/FDL protocol tool (local binary)
 │   └── ram_payload/        # Bare-metal payload source code, headers & runners
