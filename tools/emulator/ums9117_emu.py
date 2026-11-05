@@ -357,8 +357,10 @@ class UMS9117Emulator:
         self.uc.reg_write(UC_ARM_REG_CPSR, cpsr)
 
         start_time = time.time()
+        timeout_us = (timeout_ms * 1000) if timeout_ms else 0
+        insn_limit = max_insn if max_insn else 0
         try:
-            self.uc.emu_start(real_entry, self.halt_address, timeout=timeout_ms * 1000, count=max_insn)
+            self.uc.emu_start(real_entry, self.halt_address, timeout=timeout_us, count=insn_limit)
         except UcError as err:
             pc = self.uc.reg_read(UC_ARM_REG_PC)
             print(f"\n[-] Emulation halted with exception: {err} @ PC=0x{pc:08x}")
@@ -387,7 +389,8 @@ class UMS9117Emulator:
             'LSK': 0x03, 'RSK': 0x04,
             'CALL': 0x0B, 'OK': 0x13,
             'UP': 0x0C, 'DOWN': 0x14,
-            'LEFT': 0x0D, 'RIGHT': 0x15
+            'LEFT': 0x0D, 'RIGHT': 0x15,
+            'VOL_UP': 0x16, 'VOL_DOWN': 0x17
         }
         if key_name in ('END', 'POWER'):
             # SC2720 PMIC EIC Power/End key active low (bit 1 = 0)
@@ -396,7 +399,8 @@ class UMS9117Emulator:
 
         code = key_codes.get(key_name, 0x00)
         self.uc.mem_write(0x40250008, struct.pack('<I', 0x00000001))
-        self.uc.mem_write(0x4025002C, struct.pack('<I', code))
+        self.uc.mem_write(0x4025001C, struct.pack('<I', code))
+        self.uc.mem_write(0x4025002C, struct.pack('<I', code | 1))
 
     def release_key(self, key_name):
         """Simulate releasing a keypad button."""
@@ -404,6 +408,8 @@ class UMS9117Emulator:
             self.uc.mem_write(0x40608280, struct.pack('<I', 0x00000002))
             return
         self.uc.mem_write(0x40250008, struct.pack('<I', 0x00000000))
+        self.uc.mem_write(0x4025001C, struct.pack('<I', 0x00000000))
+        self.uc.mem_write(0x4025002C, struct.pack('<I', 0x00000000))
 
 
 def main():

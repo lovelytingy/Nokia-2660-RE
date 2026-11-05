@@ -160,11 +160,12 @@ void main_entry(void) {
     // 4. Bouncing box animation state
     int bx = 20, by = 160;
     int bdx = 3, bdy = 2;
+    int box_color_idx = 0;
     const int bsize = 24;
     const uint16_t rainbow[] = { C_RED, C_ORANGE, C_YELLOW, C_GREEN, C_CYAN, C_BLUE, C_MAGENTA };
 
     uint32_t frame = 0;
-    while (frame < 900) { // 30 seconds at 30 FPS
+    while (1) {
         // Draw Background
         fill_rect(fb, 0, 0, FB_WIDTH, FB_HEIGHT, C_DARK_BG);
 
@@ -187,25 +188,47 @@ void main_entry(void) {
         }
 
         // Live Keypad Monitor Readout
-        uint32_t kpd_raw = KPD_RAW;
-        uint32_t kpd_stat = KPD_STATUS;
+        uint32_t kpd_pressed = KPD_RAW & 1;
+        uint32_t kpd_code = KPD_STATUS & 0x7F;
         fill_rect(fb, 8, 132, FB_WIDTH - 16, 24, 0x2126);
-        if (kpd_raw & 1) {
-            draw_string(fb, 16, 136, "KEY PRESSED: Code 0x", C_YELLOW, 0x2126);
-            const char hex[] = "0123456789ABCDEF";
-            draw_char(fb, 176, 136, hex[(kpd_stat >> 4) & 0xF], C_YELLOW, 0x2126);
-            draw_char(fb, 184, 136, hex[kpd_stat & 0xF], C_YELLOW, 0x2126);
+
+        if (kpd_pressed) {
+            const char *kname = "KEY: [ ? ]";
+            if (kpd_code == 0x00) { kname = "KEY: [ 1 ]"; box_color_idx = 0; }
+            else if (kpd_code == 0x01) { kname = "KEY: [ 2 ]"; box_color_idx = 1; }
+            else if (kpd_code == 0x02) { kname = "KEY: [ 3 ]"; box_color_idx = 2; }
+            else if (kpd_code == 0x08) { kname = "KEY: [ 4 ]"; box_color_idx = 3; }
+            else if (kpd_code == 0x09) { kname = "KEY: [ 5 ]"; box_color_idx = 4; }
+            else if (kpd_code == 0x0A) { kname = "KEY: [ 6 ]"; box_color_idx = 5; }
+            else if (kpd_code == 0x10) { kname = "KEY: [ 7 ]"; box_color_idx = 6; }
+            else if (kpd_code == 0x11) { kname = "KEY: [ 8 ]"; box_color_idx = 0; }
+            else if (kpd_code == 0x12) { kname = "KEY: [ 9 ]"; box_color_idx = 1; }
+            else if (kpd_code == 0x18) { kname = "KEY: [ * ]"; }
+            else if (kpd_code == 0x19) { kname = "KEY: [ 0 ]"; }
+            else if (kpd_code == 0x1A) { kname = "KEY: [ # ]"; }
+            else if (kpd_code == 0x03) { kname = "KEY: [ LSK ]"; }
+            else if (kpd_code == 0x04) { kname = "KEY: [ RSK ]"; }
+            else if (kpd_code == 0x0B) { kname = "KEY: [ CALL ]"; PMIC_VIBR = 0x8007; }
+            else if (kpd_code == 0x13) { kname = "KEY: [ OK / SELECT ]"; PMIC_TORCH ^= 0x800F; }
+            else if (kpd_code == 0x0C) { kname = "KEY: [ UP ▲ ]"; by -= 4; bdy = -2; }
+            else if (kpd_code == 0x14) { kname = "KEY: [ DOWN ▼ ]"; by += 4; bdy = 2; }
+            else if (kpd_code == 0x0D) { kname = "KEY: [ LEFT ◀ ]"; bx -= 4; bdx = -2; }
+            else if (kpd_code == 0x15) { kname = "KEY: [ RIGHT ▶ ]"; bx += 4; bdx = 2; }
+
+            draw_string(fb, 16, 136, kname, C_YELLOW, 0x2126);
         } else {
-            draw_string(fb, 16, 136, "KEYPAD: Waiting for input...", C_LIGHT_GRAY, 0x2126);
+            draw_string(fb, 16, 136, "KEYPAD: Ready for input...", C_LIGHT_GRAY, 0x2126);
         }
 
-        // Animated Bouncing Rainbow Square
+        // Animated Bouncing Rainbow Square (Interactive)
         bx += bdx;
         by += bdy;
-        if (bx <= 10 || bx + bsize >= FB_WIDTH - 10) bdx = -bdx;
-        if (by <= 160 || by + bsize >= 280) bdy = -bdy;
+        if (bx <= 10) { bx = 10; bdx = -bdx; }
+        if (bx + bsize >= FB_WIDTH - 10) { bx = FB_WIDTH - 10 - bsize; bdx = -bdx; }
+        if (by <= 160) { by = 160; bdy = -bdy; }
+        if (by + bsize >= 280) { by = 280 - bsize; bdy = -bdy; }
 
-        uint16_t box_color = rainbow[(frame / 10) % 7];
+        uint16_t box_color = rainbow[box_color_idx % 7];
         fill_rect(fb, bx, by, bsize, bsize, box_color);
         fill_rect(fb, bx + 4, by + 4, bsize - 8, bsize - 8, C_WHITE);
 
