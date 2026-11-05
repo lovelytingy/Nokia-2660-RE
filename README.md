@@ -43,6 +43,7 @@ Our goal is to thoroughly document the platform internals, map out peripheral re
 - ✅ **Tethered Custom Code Execution:** Bare-metal ARMv7-A execution in volatile DRAM with full hardware control ([docs/custom-code-execution.md](docs/custom-code-execution.md)).
 - ✅ **Hardware Secure Boot & eFuse Audit:** Physical audit proved Gate 1 & Gate 2 are active (16-bit eFuse lock mask `0xFFFF` burned in Row 0); on-device boot strictly enforces RSA-2048 verification ([docs/boot-security-verification.md](docs/boot-security-verification.md)).
 - ✅ **Firmware Triage & Static Analysis Suite:** Built automated analysis tools ([`tools/extract_strings.py`](tools/extract_strings.py) & [`tools/mocor-info.py`](tools/mocor-info.py)) to parse DHTB headers, RSA certificate chains, RTOS task tables, 560+ AT commands, and secret dialer codes ([docs/hidden-codes.md](docs/hidden-codes.md)).
+- ✅ **Coprocessor & Auxiliary Firmware Decompilation:** Decompiled Cortex-M4 power management coprocessor (`pm_cm4.bin`) with 245 exported C functions in Ghidra, reverse-engineered `mmi_res.bin` RGB565 boot splashes, CEVA baseband DSP memory maps, and 28 acoustic calibration profiles in `nvitem.bin`.
 - 🔄 **Untethered Execution:** Exploring signature bypass, bootloader chain modification, or micro-payload injection from NAND flash.
 
 ---
@@ -124,6 +125,10 @@ Our research findings are structured into focused, technical references:
 * [**Memory Map**](docs/memory-map.md) — SRAM (`0x00006200`), DDR execution layout (`0x80100000`), MMU tables, MOCOR tasks.
 * [**Firmware Triage Reference**](docs/firmware-triage-reference.md) — In-depth reference on RTOS tasks, LCD drivers (`GC9307`/`GC9107`), 560+ AT commands, eFuse security strings, and panic diagnostics.
 * [**Firmware Provenance & PAC**](firmware/readme.md) — PAC image hashes, extraction instructions, stock partition inventory.
+* [**Cortex-M4 Power Management**](docs/cortex-m4-power-management.md) — Deep dive into `pm_cm4.bin` ThreadX Lite RTOS, ADI bus to SC2720 PMIC, IPC mailboxes (`0xBEEE`), and LPDDR self-refresh memory retention.
+* [**MMI Resource Pack Format**](docs/resource-pack-format.md) — Reverse-engineered `mmi_res.bin` `sres0001` container, 792 theme assets, 240×320 and 128×160 RGB565 BMP boot splashes, and language tables.
+* [**Non-Volatile Parameter Architecture**](docs/nvram-items.md) — `nvitem.bin` structure, RF calibration tables, IMEI storage, and 28 discrete acoustic path DSP profiles.
+* [**Baseband Modem DSP Subsystems**](docs/dsp-modem-subsystem.md) — CEVA DSP architectures for `gsm_dsp.bin` and `lte_dsp.bin`, memory-mapped mailbox registers (`0xE0410000`/`0xE0490000`), and VoLTE/EVS engines.
 
 ### 💻 Software & Execution Architecture
 * [**Application Layer Architecture**](docs/application-layer.md) — MOCOR window system, event loop, dynamic loader analysis.

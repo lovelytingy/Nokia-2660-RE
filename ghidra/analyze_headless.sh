@@ -64,6 +64,7 @@ import_binary() {
     local bin_path="$1"
     local bin_name="$2"
     local base_addr="$3"
+    local proc="${4:-ARM:LE:32:v7}"
 
     if [[ ! -f "${bin_path}" ]]; then
         echo "[!] Skipping ${bin_name}: file not found at ${bin_path}"
@@ -72,13 +73,13 @@ import_binary() {
 
     echo ""
     echo "================================================================="
-    echo "[*] Importing ${bin_name} @ ${base_addr} into ${PROJECT_NAME}..."
+    echo "[*] Importing ${bin_name} @ ${base_addr} (${proc}) into ${PROJECT_NAME}..."
     echo "================================================================="
 
     "${ANALYZER}" \
         "${PROJECT_DIR}" "${PROJECT_NAME}" \
         -import "${bin_path}" \
-        -processor ARM:LE:32:v7 \
+        -processor "${proc}" \
         -cspec default \
         -loader BinaryLoader \
         -loader-baseAddr "${base_addr}" \
@@ -86,15 +87,17 @@ import_binary() {
 }
 
 # Verified hardware load base addresses:
-# boot0.bin: 0x00006200 (IRAM / SRAM, reset entry at 0x6420)
-# boot1.bin: 0x80100000 (DDR, reset entry at 0x80100220)
-# fdl1.bin:  0x00006200 (IRAM / SRAM, download mode)
-# fdl2.bin:  0x80100000 (DDR, download mode)
+# boot0.bin:  0x00006200 (IRAM / SRAM, reset entry at 0x6420)
+# boot1.bin:  0x80100000 (DDR, reset entry at 0x80100220)
+# fdl1.bin:   0x00006200 (IRAM / SRAM, download mode)
+# fdl2.bin:   0x80100000 (DDR, download mode)
+# pm_cm4.bin: 0x00000000 (CM4 IRAM, Cortex-M4 Power Management Core)
 
-import_binary "${REPO_ROOT}/firmware/dumps/ta1480_10.02.17.00/boot0.bin" "boot0.bin" "0x00006200"
-import_binary "${REPO_ROOT}/firmware/dumps/ta1480_10.02.17.00/boot1.bin" "boot1.bin" "0x80100000"
-import_binary "${REPO_ROOT}/firmware/extracted/v23_update_Nokia_2660/fdl1.bin" "fdl1.bin" "0x00006200"
-import_binary "${REPO_ROOT}/firmware/extracted/v23_update_Nokia_2660/fdl2.bin" "fdl2.bin" "0x80100000"
+import_binary "${REPO_ROOT}/firmware/dumps/ta1480_10.02.17.00/boot0.bin" "boot0.bin" "0x00006200" "ARM:LE:32:v7"
+import_binary "${REPO_ROOT}/firmware/dumps/ta1480_10.02.17.00/boot1.bin" "boot1.bin" "0x80100000" "ARM:LE:32:v7"
+import_binary "${REPO_ROOT}/firmware/extracted/v23_update_Nokia_2660/fdl1.bin" "fdl1.bin" "0x00006200" "ARM:LE:32:v7"
+import_binary "${REPO_ROOT}/firmware/extracted/v23_update_Nokia_2660/fdl2.bin" "fdl2.bin" "0x80100000" "ARM:LE:32:v7"
+import_binary "${REPO_ROOT}/firmware/dumps/ta1480_10.02.17.00/pm_cm4.bin" "pm_cm4.bin" "0x00000000" "ARM:LE:32:Cortex"
 
 echo ""
 echo "================================================================="
@@ -109,14 +112,17 @@ echo "================================================================="
 
 echo ""
 echo "================================================================="
-echo "[*] Exporting decompiled C code for boot0.bin..."
+echo "[*] Exporting decompiled C code for all targets..."
 echo "================================================================="
 
-"${ANALYZER}" \
-    "${PROJECT_DIR}" "${PROJECT_NAME}" \
-    -process boot0.bin \
-    -postScript ExportDecompiledCode.java \
-    -scriptPath "${SCRIPTS_DIR}"
+for target in boot0.bin boot1.bin fdl1.bin fdl2.bin pm_cm4.bin; do
+    echo "[*] Decompiling ${target}..."
+    "${ANALYZER}" \
+        "${PROJECT_DIR}" "${PROJECT_NAME}" \
+        -process "${target}" \
+        -postScript ExportDecompiledCode.java \
+        -scriptPath "${SCRIPTS_DIR}"
+done
 
 echo ""
 echo "[+] Done! Ghidra project ready at: ${PROJECT_DIR}/${PROJECT_NAME}.gpr"
