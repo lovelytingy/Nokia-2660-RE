@@ -132,6 +132,8 @@ Our research findings are structured into focused, technical references:
 
 ### 💻 Software & Execution Architecture
 * [**Application Layer Architecture**](docs/application-layer.md) — MOCOR window system, event loop, dynamic loader analysis.
+* [**Kernel Architecture & Subsystems**](docs/kernel-architecture.md) — Monolithic `kernel.bin` architecture (`0x80a05e00`), CP15 reset init (`0x80a061f0`), ThreadX task tables, and peripheral driver maps.
+* [**MMI Application Framework**](docs/user-application-framework.md) — Userspace `user.bin` architecture (`0x88000000`), MMK GUI framework, worker tasks, and Opera/Java/Bluetooth runtimes.
 * [**Custom Code Execution Guide**](docs/custom-code-execution.md) — Bare-metal linker scripts, toolchain setup, payload entry points.
 * [**Community Findings & Tips**](docs/community-findings.md) — Boot key shortcuts, dialer codes, safe firmware dump walkthrough.
 * [**Hidden Dialer Codes**](docs/hidden-codes.md) — Complete audit of secret codes: Unisoc Engineer Mode (`*#*#372733#*#`), factory logging toggle (`*#8378*733425*1#`), MMI hardware test, and 30+ language shortcuts.

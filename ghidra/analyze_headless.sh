@@ -92,12 +92,16 @@ import_binary() {
 # fdl1.bin:   0x00006200 (IRAM / SRAM, download mode)
 # fdl2.bin:   0x80100000 (DDR, download mode)
 # pm_cm4.bin: 0x00000000 (CM4 IRAM, Cortex-M4 Power Management Core)
+# kernel.bin: 0x80a05e00 (DDR, MOCOR RTOS Kernel, entry at 0x80a06000 / 0x80a061f0)
+# user.bin:   0x88000000 (DDR, MOCOR MMI Applications, entry at 0x88479f6f)
 
 import_binary "${REPO_ROOT}/firmware/dumps/ta1480_10.02.17.00/boot0.bin" "boot0.bin" "0x00006200" "ARM:LE:32:v7"
 import_binary "${REPO_ROOT}/firmware/dumps/ta1480_10.02.17.00/boot1.bin" "boot1.bin" "0x80100000" "ARM:LE:32:v7"
 import_binary "${REPO_ROOT}/firmware/extracted/v23_update_Nokia_2660/fdl1.bin" "fdl1.bin" "0x00006200" "ARM:LE:32:v7"
 import_binary "${REPO_ROOT}/firmware/extracted/v23_update_Nokia_2660/fdl2.bin" "fdl2.bin" "0x80100000" "ARM:LE:32:v7"
 import_binary "${REPO_ROOT}/firmware/dumps/ta1480_10.02.17.00/pm_cm4.bin" "pm_cm4.bin" "0x00000000" "ARM:LE:32:Cortex"
+import_binary "${REPO_ROOT}/firmware/dumps/ta1480_10.02.17.00/kernel.bin" "kernel.bin" "0x80a05e00" "ARM:LE:32:v7"
+import_binary "${REPO_ROOT}/firmware/dumps/ta1480_10.02.17.00/user.bin" "user.bin" "0x88000000" "ARM:LE:32:v7"
 
 echo ""
 echo "================================================================="
@@ -115,7 +119,7 @@ echo "================================================================="
 echo "[*] Exporting decompiled C code for all targets..."
 echo "================================================================="
 
-for target in boot0.bin boot1.bin fdl1.bin fdl2.bin pm_cm4.bin; do
+for target in boot0.bin boot1.bin fdl1.bin fdl2.bin pm_cm4.bin kernel.bin user.bin; do
     echo "[*] Decompiling ${target}..."
     "${ANALYZER}" \
         "${PROJECT_DIR}" "${PROJECT_NAME}" \

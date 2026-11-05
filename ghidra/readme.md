@@ -31,12 +31,14 @@ The base addresses for raw binary imports have been verified through reset vecto
 | `fdl1.bin` | First Download-Mode Loader | `ARM:LE:32:v7` (Cortex-A7) | **`0x00006200`** | `0x00006420` |
 | `fdl2.bin` | Second Download-Mode Loader | `ARM:LE:32:v7` (Cortex-A7) | **`0x80100000`** | `0x80100220` |
 | `pm_cm4.bin`| Power Management Coprocessor | `ARM:LE:32:Cortex` (Cortex-M4) | **`0x00000000`** | `0x00000000` |
+| `kernel.bin`| MOCOR Monolithic RTOS Kernel | `ARM:LE:32:v7` (Cortex-A7) | **`0x80a05e00`** | `0x80a061f0` (CP15 SCTLR entry) |
+| `user.bin`  | MMI Application Framework | `ARM:LE:32:v7` (Cortex-A7) | **`0x88000000`** | `0x88479f6f` (`MS_MMI_Main`) |
 
 ---
 
 ## 🚀 Quick Start: Automated Headless Analysis
 
-You can build or refresh the entire Ghidra project, import all 5 binaries, run analysis, and export decompiled C code with a single command:
+You can build or refresh the entire Ghidra project, import all 7 binaries, run analysis, and export decompiled C code with a single command:
 
 ```bash
 ./ghidra/analyze_headless.sh
@@ -104,3 +106,7 @@ Even if you do not have Ghidra installed on your machine, you can read the analy
 * [`fdl2.bin_decompiled.c`](exports/fdl2.bin_decompiled.c) — Decompiled C functions from FDL2 USB flasher.
 * [`pm_cm4.bin_notes.txt`](exports/pm_cm4.bin_notes.txt) — Memory map and function index for `pm_cm4.bin`.
 * [`pm_cm4.bin_decompiled.c`](exports/pm_cm4.bin_decompiled.c) — **245 decompiled C functions** from the Cortex-M4 power management coprocessor.
+* [`kernel.bin_notes.txt`](exports/kernel.bin_notes.txt) — Memory map and function index for `kernel.bin`.
+* [`kernel.bin_decompiled.c`](exports/kernel.bin_decompiled.c) — **499 decompiled C functions** from the MOCOR monolithic RTOS kernel.
+* [`user.bin_notes.txt`](exports/user.bin_notes.txt) — Memory map and function index for `user.bin`.
+* [`user.bin_decompiled.c`](exports/user.bin_decompiled.c) — **500 decompiled C functions** from the MMI userspace application framework.

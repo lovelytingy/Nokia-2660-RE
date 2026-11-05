@@ -1,4 +1,4 @@
-// Decompile all functions in current program and export to a C file
+// Decompile functions in current program and export to a C file
 //@category Nokia2660
 
 import java.io.File;
@@ -15,6 +15,9 @@ public class ExportDecompiledCode extends GhidraScript {
 	@Override
 	public void run() throws Exception {
 		String outDir = getScriptArgs().length > 0 ? getScriptArgs()[0] : "ghidra/exports";
+		int maxFunctions = getScriptArgs().length > 1 ? Integer.parseInt(getScriptArgs()[1]) : 500;
+		int timeoutPerFunc = getScriptArgs().length > 2 ? Integer.parseInt(getScriptArgs()[2]) : 5;
+
 		new File(outDir).mkdirs();
 		String outPath = outDir + "/" + currentProgram.getName() + "_decompiled.c";
 		PrintWriter pw = new PrintWriter(new FileWriter(outPath));
@@ -34,22 +37,29 @@ public class ExportDecompiledCode extends GhidraScript {
 
 		FunctionIterator it = currentProgram.getFunctionManager().getFunctions(true);
 		int count = 0;
-		while (it.hasNext() && !monitor.isCancelled()) {
+		int attempted = 0;
+		while (it.hasNext() && attempted < maxFunctions && !monitor.isCancelled()) {
 			Function f = it.next();
-			DecompileResults res = ifc.decompileFunction(f, 30, monitor);
-			if (res != null && res.decompileCompleted()) {
-				pw.println("/* Function: " + f.getName() + " @ " + f.getEntryPoint() + " (size: " + f.getBody().getNumAddresses() + " bytes) */");
-				pw.println(res.getDecompiledFunction().getC());
-				pw.println();
-				count++;
-			} else {
-				pw.println("/* Failed to decompile " + f.getName() + " @ " + f.getEntryPoint() + " */");
+			attempted++;
+			try {
+				DecompileResults res = ifc.decompileFunction(f, timeoutPerFunc, monitor);
+				if (res != null && res.decompileCompleted()) {
+					pw.println("/* Function: " + f.getName() + " @ " + f.getEntryPoint() + " (size: " + f.getBody().getNumAddresses() + " bytes) */");
+					pw.println(res.getDecompiledFunction().getC());
+					pw.println();
+					count++;
+				} else {
+					pw.println("/* Failed to decompile " + f.getName() + " @ " + f.getEntryPoint() + " */");
+					pw.println();
+				}
+			} catch (Exception ex) {
+				pw.println("/* Exception decompiling " + f.getName() + " @ " + f.getEntryPoint() + ": " + ex.getMessage() + " */");
 				pw.println();
 			}
 		}
 
 		ifc.dispose();
 		pw.close();
-		println("Successfully decompiled " + count + " functions to " + outPath);
+		println("Successfully decompiled " + count + " / " + attempted + " functions to " + outPath);
 	}
 }
