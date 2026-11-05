@@ -31,6 +31,7 @@ tools/ram_payload/
 │   ├── flashlight_test.bin     # Interactive rear torch & SOS optical beacon payload (24 KB)
 │   ├── haptics_test.bin        # Interactive ERM motor & haptic patterns payload (24 KB)
 │   ├── audio_test.bin          # Interactive speaker PA tone payload (25 KB)
+│   ├── secure_boot_diag.bin    # Hardware Secure Boot & eFuse audit payload (20 KB)
 │   ├── baremetal_asm.bin       # Minimal 616-byte raw ARM assembly payload
 │   └── libc_server             # Native macOS host USB serial / display server
 │
@@ -64,6 +65,10 @@ tools/ram_payload/
 │   │
 │   ├── audio_test/             # C speaker audio diagnostic tool
 │   │   ├── audio_test_main.c   # GPIO 31 square-wave tones & melody playback
+│   │   └── build.sh            # Automated compilation script (arm-none-eabi-gcc)
+│   │
+│   ├── secure_boot_diag/       # C hardware secure boot & eFuse diagnostic tool
+│   │   ├── secure_boot_diag_main.c # AON 0x402e0568 & eFuse 0x40240000 security gate auditor
 │   │   └── build.sh            # Automated compilation script (arm-none-eabi-gcc)
 │   │
 │   └── baremetal_asm/          # Minimal ARM assembly payload

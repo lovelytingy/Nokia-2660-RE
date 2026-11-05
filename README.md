@@ -87,6 +87,7 @@ All precompiled payloads reside in [`tools/ram_payload/`](tools/ram_payload/):
 | [`run_flashlight_test.sh`](tools/ram_payload/run_flashlight_test.sh) | Cycles the SC2720 PMIC rear white LED through variable brightness levels |
 | [`run_haptics_test.sh`](tools/ram_payload/run_haptics_test.sh) | Tests ERM vibration motor pulse sequences and strength profiles via LDO_VIBR |
 | [`run_audio_test.sh`](tools/ram_payload/run_audio_test.sh) | Ungates audio clock (`0x40608c08`) and probes GPIO 31 external PA amplifier |
+| [`run_secure_boot_diag.sh`](tools/ram_payload/run_secure_boot_diag.sh) | Audits hardware Secure Boot gates (AON `0x402e0568` & eFuse Block 1), anti-rollback & root key |
 
 ### Running a Payload
 
