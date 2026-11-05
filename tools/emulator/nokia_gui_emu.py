@@ -331,7 +331,9 @@ class NokiaGUIEmulator(tk.Tk):
         sx0 = (390 - self.disp_w) // 2  # 75
         sy0 = 60
         c.create_rectangle(sx0 - 4, sy0 - 4, sx0 + self.disp_w + 4, sy0 + self.disp_h + 4, fill="#080c10", outline="#30363d", width=2)
-        self.screen_canvas_id = c.create_image(sx0, sy0, anchor=tk.NW)
+        # Dedicated Screen Widget (Uses tk.Label for 100% reliable rendering on macOS Cocoa Tkinter)
+        self.screen_label = tk.Label(self.phone_canvas, bg="#080c10", bd=0, highlightthickness=0)
+        self.phone_canvas.create_window(sx0, sy0, anchor=tk.NW, window=self.screen_label, width=self.disp_w, height=self.disp_h)
 
         # 2. CENTER HINGE
         c.create_rectangle(35, 400, 355, 414, fill="#2d333b", outline="#444c56", width=2)
@@ -414,13 +416,18 @@ class NokiaGUIEmulator(tk.Tk):
     def _load_default_splash(self):
         img = Image.new("RGB", (self.disp_w, self.disp_h), color="#084360")
         d = ImageDraw.Draw(img)
-        d.text((45, 140), "NOKIA 2660 FLIP", fill="#ffffff")
-        d.text((50, 160), "INITIALIZING...", fill="#39d353")
+        # Nokia Blue gradient bar
+        d.rectangle([(0, 0), (self.disp_w, 42)], fill="#016cbb")
+        d.text((45, 14), "NOKIA 2660 FLIP", fill="#ffffff")
+        d.text((50, 140), "NOKIA 2660 FLIP", fill="#ffffff")
+        d.text((55, 165), "STARTING CPU...", fill="#39d353")
         self._update_display_image(img)
 
     def _update_display_image(self, pil_img):
         self.screen_photo = ImageTk.PhotoImage(pil_img)
-        self.phone_canvas.itemconfig(self.screen_canvas_id, image=self.screen_photo)
+        if hasattr(self, 'screen_label') and self.screen_label.winfo_exists():
+            self.screen_label.config(image=self.screen_photo)
+            self.screen_label.image = self.screen_photo
 
     def _populate_payload_list(self):
         items = []
@@ -526,7 +533,16 @@ class NokiaGUIEmulator(tk.Tk):
         self.status_badge.config(text="● ON", fg="#3fb950")
         self.status_var.set(f"Running {os.path.basename(self.current_binary)}...")
 
-        self.emu_thread = threading.Thread(target=self._run_emu_worker, daemon=True)
+        # Extract Tkinter variables safely on the main thread before starting worker
+        binary = self.current_binary
+        profile = self.current_profile
+        boot_key = self.bootkey_var.get() if hasattr(self, 'bootkey_var') else "none"
+
+        self.emu_thread = threading.Thread(
+            target=self._run_emu_worker,
+            args=(binary, profile, boot_key),
+            daemon=True
+        )
         self.emu_thread.start()
 
     def _stop_emulation(self):
@@ -551,20 +567,19 @@ class NokiaGUIEmulator(tk.Tk):
         self._load_default_splash()
         self.after(150, self._start_emulation)
 
-    def _run_emu_worker(self):
-        base = 0x80100000 if self.current_profile == "payload" else 0x00006200
-        entry = 0x80100200 if self.current_profile == "payload" else 0x00006420
+    def _run_emu_worker(self, binary, profile, boot_key):
+        base = 0x80100000 if profile == "payload" else 0x00006200
+        entry = 0x80100200 if profile == "payload" else 0x00006420
 
         emu = UMS9117Emulator(trace=False, verbose=False)
         self.active_emu = emu
 
-        bk = self.bootkey_var.get()
-        if "uart" in bk:
+        if "uart" in boot_key:
             emu.set_boot_key("uart")
-        elif "jtag" in bk:
+        elif "jtag" in boot_key:
             emu.set_boot_key("jtag")
 
-        emu.load_binary(self.current_binary, base)
+        emu.load_binary(binary, base)
 
         # 1. Wire Framebuffer Refresh Callback
         def on_frame(raw_bytes):
