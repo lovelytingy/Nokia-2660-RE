@@ -14,6 +14,10 @@ Emulates the Nokia 2660 Flip (TA-1480 / Unisoc UMS9117) with:
 
 import sys
 import os
+
+# Suppress macOS Tkinter deprecation warning
+os.environ["TK_SILENCE_DEPRECATION"] = "1"
+
 import time
 import threading
 import queue
@@ -23,6 +27,7 @@ from tkinter import ttk, filedialog, messagebox
 from PIL import Image, ImageTk, ImageDraw
 
 from ums9117_emu import UMS9117Emulator, PAGE_SIZE, align_down, align_up
+from unicorn import *
 from unicorn.arm_const import *
 
 REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
