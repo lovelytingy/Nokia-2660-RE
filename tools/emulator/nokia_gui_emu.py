@@ -18,6 +18,11 @@ import os
 # Suppress macOS Tkinter deprecation warning
 os.environ["TK_SILENCE_DEPRECATION"] = "1"
 
+# Ensure tools/emulator directory is in sys.path for relative imports
+EMU_DIR = os.path.dirname(os.path.abspath(__file__))
+if EMU_DIR not in sys.path:
+    sys.path.insert(0, EMU_DIR)
+
 import time
 import threading
 import queue
@@ -73,7 +78,13 @@ class NokiaGUIEmulator(tk.Tk):
 
         self._build_ui()
         self._load_default_splash()
+        self.protocol("WM_DELETE_WINDOW", self._on_close)
         self._poll_queues()
+
+    def _on_close(self):
+        self.running = False
+        self._stop_emulation()
+        self.destroy()
 
     def _build_ui(self):
         # Main Layout: Left = Phone Chassis / Skin, Right = Telemetry & Console
@@ -547,6 +558,12 @@ class NokiaGUIEmulator(tk.Tk):
         self.status_queue.put(("finished", f"Emulation finished ({emu.insn_count} instructions)."))
 
     def _poll_queues(self):
+        try:
+            if not self.winfo_exists():
+                return
+        except Exception:
+            return
+
         # 1. Flush UART Output
         chars = []
         while not self.uart_queue.empty():
@@ -612,8 +629,12 @@ class NokiaGUIEmulator(tk.Tk):
             except queue.Empty:
                 break
 
-        # Poll again in 30ms (~33 FPS)
-        self.after(30, self._poll_queues)
+        # Poll again in 30ms (~33 FPS) if window is still alive
+        try:
+            if self.winfo_exists():
+                self.after(30, self._poll_queues)
+        except Exception:
+            pass
 
 
 def main():
