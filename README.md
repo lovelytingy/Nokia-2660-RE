@@ -44,7 +44,7 @@ Our goal is to thoroughly document the platform internals, map out peripheral re
 - ✅ **Hardware Secure Boot & eFuse Audit:** Physical audit proved Gate 1 & Gate 2 are active (16-bit eFuse lock mask `0xFFFF` burned in Row 0); on-device boot strictly enforces RSA-2048 verification ([docs/boot-security-verification.md](docs/boot-security-verification.md)).
 - ✅ **Firmware Triage & Static Analysis Suite:** Built automated analysis tools ([`tools/extract_strings.py`](tools/extract_strings.py) & [`tools/mocor-info.py`](tools/mocor-info.py)) to parse DHTB headers, RSA certificate chains, RTOS task tables, 560+ AT commands, and secret dialer codes ([docs/hidden-codes.md](docs/hidden-codes.md)).
 - ✅ **Coprocessor & Auxiliary Firmware Decompilation:** Decompiled Cortex-M4 power management coprocessor (`pm_cm4.bin`) with 245 exported C functions in Ghidra, reverse-engineered `mmi_res.bin` RGB565 boot splashes, CEVA baseband DSP memory maps, and 28 acoustic calibration profiles in `nvitem.bin`.
-- ✅ **Interactive Nokia 2660 GUI Emulator & Phone Skin:** Built host-side ARMv7-A hardware simulator ([`tools/emulator/`](tools/emulator/)) using Unicorn Engine, featuring an interactive Nokia clamshell skin, live 240×320 display, clickable keypad matrix, flashlight & vibration indicators, real-time UART1 serial console, and register telemetry to test payloads before flashing.
+- 🚧 **Hardware Emulator (In Development):** Host-side ARMv7-A hardware simulator ([`tools/emulator/`](tools/emulator/)) using Unicorn Engine, clamshell GUI skin, and keypad matrix. *Currently in active development as the LCD is not rendering at all.*
 - 🔄 **Untethered Execution:** Exploring signature bypass, bootloader chain modification, or micro-payload injection from NAND flash.
 
 ---
@@ -166,7 +166,7 @@ Nokia-2660-RE/
 │
 ├── tools/                  # Python & shell utilities
 │   ├── readme.md           # Tools guide & dependencies
-│   ├── emulator/           # Unicorn CPU & peripheral hardware emulator
+│   ├── emulator/           # Unicorn CPU & hardware emulator (In dev — LCD not rendering)
 │   ├── extract_pac.py      # Unisoc BP_R1.0.0 PAC archive unpacker
 │   ├── extract_strings.py  # String triage & domain categorization tool
 │   ├── mocor-info.py       # DHTB header, RSA chain & MOCOR OS inspector
