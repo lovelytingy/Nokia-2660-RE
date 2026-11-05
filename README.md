@@ -110,6 +110,7 @@ Our research findings are structured into focused, technical references:
 ### 🔌 Hardware & Peripherals
 * [**Hardware Overview**](docs/hardware.md) — Chipset specs, auxiliary cores, screen controllers, pin assignments.
 * [**Keypad Matrix Controller**](docs/keypad-matrix.md) — 4×5 matrix scanner registers, PMIC EIC power key decoder, keymap tables.
+* [**UART Serial & Debug Console**](docs/uart-serial-interface.md) — 1.8V UART1 (`0x70100000`), bootloader log streams, boot key pinmux multiplexing (holding key `7`/`3`).
 * [**Flashlight (Rear Torch)**](docs/flashlight.md) — SC2720 PMIC current sink (`0x40608df4`), duty cycle calculation, disassembly.
 * [**Haptic Vibration Subsystem**](docs/haptics.md) — SC2720 `LDO_VIBR` voltage regulation (`0x40608e00`) and pulse timing.
 * [**Audio Subsystem & PA**](docs/audio-subsystem.md) — Speaker PA enable (GPIO 31), PMIC Line-Out, VBC codec, and clock routing.

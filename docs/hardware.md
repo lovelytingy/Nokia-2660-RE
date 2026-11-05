@@ -116,7 +116,20 @@ Hardware Secure Boot status on physical TA-1480 HW3.0 units:
 
 ---
 
-## 5. Needed from Contributors
+## 5. Serial Debug & Hardware Console (UART1)
+
+* **Controller**: Unisoc `sprd_serial` (UART1 at `0x70100000`, 115200 8N1).
+* **Clock Source**: 26 MHz (`26M_XTL`), APB clock enable via `0x71300000 |= 0x6000`.
+* **Hardware Boot Keys**:
+  * Hold **Key `7`** at power-on $\to$ Enables **UART Debug Mode** (PIN_CTL `0x402a0018 |= 0x40000000`).
+  * Hold **Key `3`** at power-on $\to$ Enables **JTAG Debug Mode** (PIN_CTL `0x402a0018 |= 0xE0000000`).
+* **Logic Voltage**: **1.8V TTL** (requires 1.8V level shifter; 3.3V/5V will damage SoC).
+
+See [`docs/uart-serial-interface.md`](uart-serial-interface.md) for complete register maps, baud rate formulas, and C initialization code.
+
+---
+
+## 6. Needed from Contributors
 
 - Motherboard PCB high-resolution photos (front and back shielding removed)
 - Exact flash memory IC part number (e.g. Winbond / Macronix / GigaDevice NAND)
