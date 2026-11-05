@@ -121,6 +121,7 @@ Our research findings are structured into focused, technical references:
 * [**BootROM Behavior**](docs/bootrom.md) — Download-mode triggers, BSL framing, watchdog timeouts, security checks.
 * [**Flash Layout & Partitions**](docs/flash-layout.md) — NAND base addresses (`0x8000000x` / `0x9000000x`), partition boundaries, PAC mapping.
 * [**Memory Map**](docs/memory-map.md) — SRAM (`0x00006200`), DDR execution layout (`0x80100000`), MMU tables, MOCOR tasks.
+* [**Firmware Triage Reference**](docs/firmware-triage-reference.md) — In-depth reference on RTOS tasks, LCD drivers (`GC9307`/`GC9107`), 560+ AT commands, eFuse security strings, and panic diagnostics.
 * [**Firmware Provenance & PAC**](firmware/readme.md) — PAC image hashes, extraction instructions, stock partition inventory.
 
 ### 💻 Software & Execution Architecture

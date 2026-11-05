@@ -41,8 +41,22 @@ When the phone is connected via USB and "Phone memory" is chosen, the internal u
 
 ---
 
-## 3. Flash Resources
+## 3. Storage Drive Mappings in Firmware
+
+MOCOR maps internal NAND volumes and external storage to DOS-style drive letters (extracted from [`firmware/dumps/ta1480_10.02.17.00/user.bin`](../firmware/dumps/ta1480_10.02.17.00/user.bin)):
+
+| Drive Letter | Storage Media | Key Paths & System Roles |
+|:---:|---|---|
+| **`D:\`** | Internal NAND User Disk (`0x80000008`) | `D:\UDISKTEST`, `D:\Audio\`, `D:\Video\`, `D:\System\Dhcps\lease.dat`, `D:\DRM_LRO` |
+| **`E:\`** | External MicroSD Card | `E:\SDTEST\`, `E:\apr.ini`, `E:\sd.txt`, `E:\Audio\`, `E:\Video\test.flv` |
+| **`c:\`** | Internal System NV / Demo Storage | `c:\reset` (Master format flag file), `c:\od_game\od_new_racing_attack\` (Gameloft trial games: `bronze`, `silver`, `golden`) |
+
+---
+
+## 4. Flash Resources
 
 * `mmi_res_240X320_MH.bin` (`0x90000004`): Packed UI resources (icons, fonts, localization strings for Indian region `MH`).
 * `EXEC_USER_IMAGE.bin` (`0x80000004`): MOCOR userspace binary containing application code.
 * `EXEC_KERNEL_IMAGE.bin` (`0x80000003`): Kernel, RTOS tasks, and drivers.
+
+See [`docs/firmware-triage-reference.md`](firmware-triage-reference.md) for full string and path triage.

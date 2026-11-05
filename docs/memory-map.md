@@ -74,13 +74,30 @@ Base load address: **`0x88000000`** (Total size: ~10.67 MB)
 
 ## 5. RTOS Static Task Table (`os_cfg.c`)
 
-Instantiated during kernel bring-up using `SCI_CreateAppThread`:
+Instantiated during kernel bring-up using `SCI_CreateAppThread` / `SCI_CreateThread`:
 
-| Task ID | Thread Name | Priority | Stack Size | Entry Address | Function |
+| Task ID / Symbol | Task Queue | Priority | Stack Size | Primary Source | Function / Purpose |
 |:---:|:---|:---:|:---:|:---:|:---|
-| `0x00` | `T_CM` | `0xd7` (215) | 4 KB | `kernel.bin` | Communication Manager (modem multiplexing) |
-| `0x01` | `T_DIAG` | `0xd8` (216) | 4 KB | `kernel.bin` | AT command diagnostics & serial PC protocol |
-| `0x02` | `T_KPDSVR` | `0x63` (99) | 4 KB | `kernel.bin` | Hardware keypad scanning & debounce server |
-| `0x04` | `T_AUDIO` | `0xc8` (200) | 8 KB | `kernel.bin` | Voice processing & hardware audio routing |
-| `0x09` | `T_TIMESVR` | `0x44` (68) | 2 KB | `kernel.bin` | RTOS high-resolution software timers |
-| `0x15` | `T_P_APP` | `0xe4` (228) | 50 KB | **`0x88479f6f`** | **MMI Application Layer (`MS_MMI_Main`)** |
+| `0x00` (`T_CM`) | `Q_CM` | `0xd7` (215) | 4 KB | `kernel.bin` | Communication Manager (modem multiplexing) |
+| `0x01` (`T_DIAG`) | `Q_DIAG` | `0xd8` (216) | 4 KB | `kernel.bin` | AT command diagnostics & serial PC protocol |
+| `0x02` (`T_KPDSVR`) | `Q_KPDSVR` | `0x63` (99) | 4 KB | `kernel.bin` | Hardware keypad scanning & debounce server |
+| `0x04` (`T_AUDIO`) | `Q_AUDIO` | `0xc8` (200) | 8 KB | `kernel.bin` | Voice processing & hardware audio routing |
+| `0x09` (`T_TIMESVR`) | `Q_TIMESVR` | `0x44` (68) | 2 KB | `kernel.bin` | RTOS high-resolution software timers |
+| `AUDIO_HAL_TASK` | `Q_AUDIO_HAL_TASK` | System | 8 KB | `kernel.bin` | Low-level VBC audio DMA buffer feeding |
+| `SPRD_CODEC_TASK` | `Q_SPRD_CODEC_TASK` | Real-time | 16 KB | `kernel.bin` | Software audio codec engine (MP3/AAC/AMR) |
+| `CHGMNG_SRV` | `Q_CHGMNG_SRV` | Server | 4 KB | `kernel.bin` | SC2720 PMIC battery charge management |
+| `THERMAL_SRV` | `Q_THERMAL_SRV` | Server | 4 KB | `kernel.bin` | Thermal sensor polling & CPU throttling |
+| `CONTROL_TASK` | — | System | 8 KB | `kernel.bin` | Hardware power state transitions & sleep |
+| `DATA_TASK` | — | Network | 8 KB | `kernel.bin` | Cellular packet routing to TCP/IP stack |
+| `NAS_CONTROL_TASK`| — | Network | 12 KB | `kernel.bin` | Non-Access Stratum protocol stack |
+| `SCM_TASK` | — | Driver | 4 KB | `kernel.bin` | Smart Card / SIM interface manager |
+| `TIMER_TASK` | — | Kernel | 4 KB | `kernel.bin` | Kernel tick timer service |
+| `WIQ_CAPTURE_TASK`| — | Diagnostic | 8 KB | `kernel.bin` | Wireless IQ data capture for RF calibration |
+| `ASM_TASK` | — | Power | 4 KB | `kernel.bin` | Advanced Sleep Management / clock gating |
+| `0x15` (`T_P_APP`) | `Q_P_APP` | `0xe4` (228) | 50 KB | **`user.bin` (`0x88479f6f`)** | **MMI Application Layer (`MS_MMI_Main`)** |
+| `T_P_APP_FILE_TASK` | `Q_P_APP_FILE_TASK` | User | 16 KB | `user.bin` | Asynchronous file I/O & storage worker |
+| `FAT_XFIND_TASK` | — | User | 8 KB | `user.bin` | Fast FAT file search & directory traversal |
+| `MMIPB_PB_TASK` | `Q_MMIPB_PB_TASK` | User | 12 KB | `user.bin` | Phonebook database indexer & SIM sync |
+| `SDIO0_TASK` | — | Driver | 8 KB | `user.bin` | High-speed MicroSD card transfer controller |
+
+*See [`docs/firmware-triage-reference.md`](firmware-triage-reference.md) for full RTOS architecture, task queues, and SCI API documentation.*
