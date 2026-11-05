@@ -114,8 +114,15 @@ static void read_security_hardware(sec_diag_t *d) {
 	d->efuse_r1 = efuse_read(1, 0);
 	d->efuse_r2_antiroll = efuse_read(2, 1); // Double-bit read for counter
 
-	// Gate 2 check (Row 1 bit 1, exact formula from boot0 FUN_00006622)
-	d->gate2_efuse = ((d->efuse_r1 >> 1) & 1);
+	// Gate 2 check: Exact reproduction of boot0 FUN_00006622 / boot1 0x80101a8e
+	// Branch A (Bit 1 is 1): checks row 0 upper bits (>> 22 == 0x3ff) and row 1 parity
+	// Branch B (Bit 1 is 0): checks if row 0 bits 6..21 have the 16-bit lock mask 0xFFFF burned!
+	if (((d->efuse_r1 << 30) & 0x80000000) != 0) {
+		d->gate2_efuse = ((d->efuse_r0 >> 22) == 0x3FF && ((~d->efuse_r1 & 0x3F) == 0)) ? 1 : 0;
+	} else {
+		uint32_t lock16 = (d->efuse_r0 >> 6) & 0xFFFF;
+		d->gate2_efuse = (lock16 == 0xFFFF) ? 1 : 0;
+	}
 
 	// Read Root of Trust Public Key Hash (eFuse Rows 3..10)
 	d->rotpk_valid = 0;

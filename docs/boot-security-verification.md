@@ -149,21 +149,34 @@ Tested on authentic reference physical hardware (**Nokia 2660 Flip TA-1480, HW3.
   NOKIA 2660 FLIP (TA-1480) - HARDWARE SECURE BOOT AUDIT
 =================================================================
   [*] Gate 1: AON Register 0x402e0568 = 0xF0000101 (Bit 0 = 1: ENABLED)
-  [*] Gate 2: eFuse Row 1 (SecCfg)   = 0x000003C0 (Bit 1 = 0: CLEAN / BYPASSED)
+  [*] Gate 2: eFuse Row 0 / Row 1     = 0x003FFFC0 / 0x000003C0 (ENFORCED)
   [*] eFuse Row 0 (Chip ID / Calib)  = 0x003FFFC0
   [*] eFuse Row 2 (Anti-Rollback Ver)= 0 (0x00000000)
   [*] Vendor Root Key SHA-256 Hash:
       00000000 00000000 00000000 2CFE5CBA 2CFE5CBA D895EF33 D895EF33 EC25CDEE
 -----------------------------------------------------------------
-  [*] VERDICT: SECURE BOOT IS BYPASSED ON THIS UNIT!
-      boot0/boot1 skip verification; custom code can boot from NAND directly.
+  [!] VERDICT: SECURE BOOT IS ENFORCED ON THIS UNIT!
+      boot0/boot1 strictly enforce RSA-2048 + SHA-256 on NAND images.
 =================================================================
 ```
 
 ### Analysis of Physical Unit Findings
-1. **Gate 2 (eFuse Row 1) is `0x000003C0`:** Bit 1 is `0`. The factory never burned the Secure Boot OTP fuse bit on this unit.
-2. **Anti-Rollback Counter is `0`:** No anti-rollback fuses are set; the bootloaders will accept any firmware version without rollback brick protection tripping.
-3. **Implication:** The stock on-device `boot0` and `boot1` bootloaders will read and run custom or modified `boot1` and `kernel` binaries from NAND flash **without requiring valid vendor RSA-2048 signatures**. Untethered custom firmware and homebrew from NAND is feasible.
+1. **Gate 1 is Active (`0xF0000101`):** Bit 0 is `1` (hardware security enabled).
+2. **Gate 2 is Active (`FUN_00006622` returns 1):**
+   * Disassembly of `boot0` (`0x6654-0x6662`) shows that when Row 1 bit 1 is `0`, it checks bits 6..21 of **eFuse Row 0**:
+     ```arm
+     0x6654: ldr   r0, [r0]          ; Row 0 = 0x003FFFC0
+     0x6656: ubfx  r0, r0, #6, #0x10 ; (0x003FFFC0 >> 6) & 0xFFFF = 0xFFFF
+     0x665a: sub.w r1, r0, #0xff00   ; 0xFFFF - 0xFF00 = 0x00FF
+     0x665e: subs  r1, #0xff         ; 0x00FF - 0x00FF = 0 (Matches!)
+     0x6662: movs  r4, #1            ; Return 1 (SECURE BOOT ACTIVE!)
+     ```
+   * The factory burned `16` continuous fuse bits (`0xFFFF`) into Row 0, which activates the hardware Secure Boot lock!
+3. **Vendor Root Key Hash is Partially Fused:** Rows 6..10 contain non-zero key hash material (`2CFE5CBA`, `D895EF33`, `EC25CDEE`), proving the SoC is provisioned with vendor cryptographic keys.
+4. **Anti-Rollback Counter is `0`:** No downgrade blow counts have been incremented yet.
+5. **Practical Implication:**
+   * **NAND Flash Boot:** `boot0` and `boot1` strictly check the RSA-2048 signature of NAND partition images (`boot1`, `kernel`). Writing an unsigned custom kernel to NAND will cause `boot1` to loop at `verify kernel fail`.
+   * **Volatile DRAM Boot (FDL1):** Remains completely open and unrestricted for homebrew, emulation, and custom bare-metal payloads.
 
 ---
 
