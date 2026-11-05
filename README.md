@@ -30,20 +30,20 @@ Our goal is to thoroughly document the platform internals, map out peripheral re
 
 ## ⚡ Current Milestones & Status
 
-- [x] ✅ **Chipset & USB Identification:** Reverse-engineered BootROM BSL handshake (`1782:4D00`) and normal Mass Storage mode (`1782:4D01`).
-- [x] ✅ **Firmware Package Unpacking:** Fully mapped Unisoc `BP_R1.0.0` PAC archive structure and built automated extractor tool (`tools/extract_pac.py`).
-- [x] ✅ **Boot & Download Protocol Mapping:** Documented complete FDL1 $\to$ FDL2 download sequence and `boot0` $\to$ `boot1` on-device boot chain ([docs/boot-process.md](docs/boot-process.md)).
-- [x] ✅ **Clean Reference Dump:** Complete partition dump from authentic physical hardware (TA-1480, SW `10.02.17.00`, HW3.0) — [firmware/dumps/ta1480_10.02.17.00/](firmware/dumps/ta1480_10.02.17.00/).
-- [x] ✅ **Peripheral Hardware Reverse Engineering:**
+- ✅ **Chipset & USB Identification:** Reverse-engineered BootROM BSL handshake (`1782:4D00`) and normal Mass Storage mode (`1782:4D01`).
+- ✅ **Firmware Package Unpacking:** Fully mapped Unisoc `BP_R1.0.0` PAC archive structure and built automated extractor tool (`tools/extract_pac.py`).
+- ✅ **Boot & Download Protocol Mapping:** Documented complete FDL1 $\to$ FDL2 download sequence and `boot0` $\to$ `boot1` on-device boot chain ([docs/boot-process.md](docs/boot-process.md)).
+- ✅ **Clean Reference Dump:** Complete partition dump from authentic physical hardware (TA-1480, SW `10.02.17.00`, HW3.0) — [firmware/dumps/ta1480_10.02.17.00/](firmware/dumps/ta1480_10.02.17.00/).
+- ✅ **Peripheral Hardware Reverse Engineering:**
   - **Displays:** Dual SPI LCD controllers (Main 2.8" QVGA GC9307 & Outer 1.77" QQVGA GC9104).
   - **Input:** 4×5 APB Keypad Matrix scanner (`0x40250000`) and PMIC EIC Power button decoder (`0x40608280`).
   - **Power & Aux:** SC2720 PMIC rear torch LED sink (`0x40608df4`) and ERM haptic vibrator LDO (`0x40608e00`).
   - **Audio:** External loudspeaker PA gate (GPIO 31) and PMIC audio subsystem clocks (`0x40608c08`).
-- [x] ✅ **Application Layer Discovery:** Analyzed MOCOR monolithic C architecture in `user.bin` ([docs/application-layer.md](docs/application-layer.md)).
-- [x] ✅ **Tethered Custom Code Execution:** Bare-metal ARMv7-A execution in volatile DRAM with full hardware control ([docs/custom-code-execution.md](docs/custom-code-execution.md)).
-- [x] ✅ **Hardware Secure Boot & eFuse Audit:** Physical audit proved Gate 1 & Gate 2 are active (16-bit eFuse lock mask `0xFFFF` burned in Row 0); on-device boot strictly enforces RSA-2048 verification ([docs/boot-security-verification.md](docs/boot-security-verification.md)).
-- [x] ✅ **Firmware Triage & Static Analysis Suite:** Built automated analysis tools ([`tools/extract_strings.py`](tools/extract_strings.py) & [`tools/mocor-info.py`](tools/mocor-info.py)) to parse DHTB headers, RSA certificate chains, RTOS task tables, 560+ AT commands, and secret dialer codes ([docs/hidden-codes.md](docs/hidden-codes.md)).
-- [ ] 🔄 **Untethered Execution:** Exploring signature bypass, bootloader chain modification, or micro-payload injection from NAND flash.
+- ✅ **Application Layer Discovery:** Analyzed MOCOR monolithic C architecture in `user.bin` ([docs/application-layer.md](docs/application-layer.md)).
+- ✅ **Tethered Custom Code Execution:** Bare-metal ARMv7-A execution in volatile DRAM with full hardware control ([docs/custom-code-execution.md](docs/custom-code-execution.md)).
+- ✅ **Hardware Secure Boot & eFuse Audit:** Physical audit proved Gate 1 & Gate 2 are active (16-bit eFuse lock mask `0xFFFF` burned in Row 0); on-device boot strictly enforces RSA-2048 verification ([docs/boot-security-verification.md](docs/boot-security-verification.md)).
+- ✅ **Firmware Triage & Static Analysis Suite:** Built automated analysis tools ([`tools/extract_strings.py`](tools/extract_strings.py) & [`tools/mocor-info.py`](tools/mocor-info.py)) to parse DHTB headers, RSA certificate chains, RTOS task tables, 560+ AT commands, and secret dialer codes ([docs/hidden-codes.md](docs/hidden-codes.md)).
+- 🔄 **Untethered Execution:** Exploring signature bypass, bootloader chain modification, or micro-payload injection from NAND flash.
 
 ---
 
