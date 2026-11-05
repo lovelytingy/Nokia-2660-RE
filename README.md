@@ -41,7 +41,8 @@ Our goal is to thoroughly document the platform internals, map out peripheral re
   - **Audio:** External loudspeaker PA gate (GPIO 31) and PMIC audio subsystem clocks (`0x40608c08`).
 - [x] ✅ **Application Layer Discovery:** Analyzed MOCOR monolithic C architecture in `user.bin` ([docs/application-layer.md](docs/application-layer.md)).
 - [x] ✅ **Tethered Custom Code Execution:** Bare-metal ARMv7-A execution in volatile DRAM with full hardware control ([docs/custom-code-execution.md](docs/custom-code-execution.md)).
-- [ ] 🔄 **Untethered Execution:** Modifying NAND flash boot chain / MOCOR RTOS (`user.bin` / `kernel.bin`) for standalone homebrew.
+- [x] ✅ **Hardware Secure Boot & eFuse Audit:** Physical audit proved Gate 2 (eFuse Row 1 bit 1) is unburned and anti-rollback is 0; untethered NAND code execution is feasible ([docs/boot-security-verification.md](docs/boot-security-verification.md)).
+- [ ] 🔄 **Untethered Execution:** Flashing and running custom bootloader / MOCOR modification from NAND flash.
 
 ---
 

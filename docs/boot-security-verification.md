@@ -140,7 +140,32 @@ If hash comparison fails, RSA signature is invalid, or anti-rollback detects a d
 
 ---
 
-## 💡 Practical Takeaways for Custom Firmware
+## 🔬 Physical Hardware Verification (TA-1480 HW3.0)
+
+Tested on authentic reference physical hardware (**Nokia 2660 Flip TA-1480, HW3.0, SW 10.02.17.00, India SKU**) via [`run_secure_boot_diag.sh`](../tools/ram_payload/run_secure_boot_diag.sh):
+
+```text
+=================================================================
+  NOKIA 2660 FLIP (TA-1480) - HARDWARE SECURE BOOT AUDIT
+=================================================================
+  [*] Gate 1: AON Register 0x402e0568 = 0xF0000101 (Bit 0 = 1: ENABLED)
+  [*] Gate 2: eFuse Row 1 (SecCfg)   = 0x000003C0 (Bit 1 = 0: CLEAN / BYPASSED)
+  [*] eFuse Row 0 (Chip ID / Calib)  = 0x003FFFC0
+  [*] eFuse Row 2 (Anti-Rollback Ver)= 0 (0x00000000)
+  [*] Vendor Root Key SHA-256 Hash:
+      00000000 00000000 00000000 2CFE5CBA 2CFE5CBA D895EF33 D895EF33 EC25CDEE
+-----------------------------------------------------------------
+  [*] VERDICT: SECURE BOOT IS BYPASSED ON THIS UNIT!
+      boot0/boot1 skip verification; custom code can boot from NAND directly.
+=================================================================
+```
+
+### Analysis of Physical Unit Findings
+1. **Gate 2 (eFuse Row 1) is `0x000003C0`:** Bit 1 is `0`. The factory never burned the Secure Boot OTP fuse bit on this unit.
+2. **Anti-Rollback Counter is `0`:** No anti-rollback fuses are set; the bootloaders will accept any firmware version without rollback brick protection tripping.
+3. **Implication:** The stock on-device `boot0` and `boot1` bootloaders will read and run custom or modified `boot1` and `kernel` binaries from NAND flash **without requiring valid vendor RSA-2048 signatures**. Untethered custom firmware and homebrew from NAND is feasible.
+
+---
 
 1. **Volatile DRAM Execution (FDL1 USB Download Mode) is Unrestricted:**
    - Loading payloads directly to DDR RAM (`0x80100000`) over USB download mode bypasses `boot0` and `boot1` entirely. The hardware runs arbitrary code safely without triggering NAND signature checks.
