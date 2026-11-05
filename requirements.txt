@@ -1,3 +1,4 @@
 # Python 3.8+
-# Optional helpers for local firmware triage
+# Disassembly and CPU emulation frameworks
 capstone>=5.0.0
+unicorn>=2.0.0

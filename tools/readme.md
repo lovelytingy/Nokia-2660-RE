@@ -10,6 +10,7 @@ Stable scripts, one-off helpers, and bare-metal RAM payloads.
 | `dump_device.sh` | Dump firmware partitions from Nokia 2660 Flip over USB using `spd_dump` |
 | `extract_strings.py` | Extract, filter noise, and categorize strings from firmware binaries into reverse engineering domains |
 | `mocor-info.py` | Parse Unisoc DHTB headers, RSA certificate chains, RTOS task tables, peripheral drivers, and partition layouts |
+| [`emulator/ums9117_emu.py`](emulator/README.md) | Unicorn-based ARM Cortex-A7 CPU & peripheral hardware emulator for local payload and loader testing |
 
 ### Firmware Unpacking & Dumping
 
