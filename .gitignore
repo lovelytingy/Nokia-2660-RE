@@ -41,13 +41,18 @@ venv/
 !firmware/extracted/**/*.xml
 !firmware/extracted/**/*.txt
 
-# Ghidra local databases / exports (regenerate from stripped payloads)
+# Ghidra local databases (regenerate via ghidra/analyze_headless.sh)
 ghidra/projects/
-ghidra/exports/
 *.rep/
 *.gpr
 *.lock
 *.gar
+
+# Keep lightweight decompiled C and analysis notes in ghidra/exports/
+!ghidra/exports/
+!ghidra/exports/**/*.txt
+!ghidra/exports/**/*.c
+!ghidra/exports/**/*.md
 
 # Captures may include huge traces; keep docs, ignore raw dumps by default
 captures/**/*.pcap
