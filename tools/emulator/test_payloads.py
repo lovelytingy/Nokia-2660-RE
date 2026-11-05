@@ -146,6 +146,27 @@ class TestUMS9117Emulator(unittest.TestCase):
         self.assertEqual(eic_val & 2, 2, "PMIC Power key bit 1 should be 1 (released)")
         print("  [✓] keypad: Matrix and PMIC EIC key injection verified!")
 
+    def test_06_baremetal_lcd_payload(self):
+        """Test full execution of baremetal_lcd.bin: LCDC programming, frame rendering, and PMIC indicators."""
+        path = os.path.join(PAYLOAD_DIR, "baremetal_lcd.bin")
+        if not os.path.exists(path):
+            self.skipTest(f"Binary not found: {path}")
+
+        emu = UMS9117Emulator(trace=False, verbose=False)
+        emu.load_binary(path, 0x80100000)
+
+        frames = []
+        emu.on_frame_callback = lambda f: frames.append(f)
+
+        # Run 500,000 instructions (enough to render multiple frames)
+        success = emu.run(0x80100200, max_insn=500000, timeout_ms=2000)
+        self.assertTrue(success, "baremetal_lcd execution failed")
+        self.assertGreater(len(frames), 0, "No LCD frames were rendered by baremetal_lcd.bin")
+        self.assertEqual(len(frames[0]), 240 * 320 * 2, "Frame byte count mismatch")
+        self.assertTrue(emu.torch_enabled, "PMIC torch LED should be turned on by payload")
+        self.assertTrue(emu.haptics_enabled, "PMIC vibrator motor should be pulsed by payload")
+        print(f"  [✓] baremetal_lcd: Rendered {len(frames)} frames with PMIC torch and vibrator active!")
+
 
 if __name__ == "__main__":
     print("=================================================================")

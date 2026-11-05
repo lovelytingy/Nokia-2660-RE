@@ -123,6 +123,9 @@ class NokiaGUIEmulator(tk.Tk):
         self.btn_run = tk.Button(row2, text="▶ Run Payload", command=self._toggle_run, bg="#238636", fg="white", font=("Helvetica", 10, "bold"), relief=tk.RAISED, width=12)
         self.btn_run.pack(side=tk.LEFT, padx=4)
 
+        self.btn_demo = tk.Button(row2, text="📺 Live LCD Demo", command=self._launch_lcd_demo, bg="#1f6feb", fg="white", font=("Helvetica", 10, "bold"), relief=tk.RAISED, width=14)
+        self.btn_demo.pack(side=tk.LEFT, padx=4)
+
         self.btn_reset = tk.Button(row2, text="🔄 Reset", command=self._reset_emu, bg="#da3633", fg="white", font=("Helvetica", 10, "bold"), relief=tk.RAISED, width=8)
         self.btn_reset.pack(side=tk.LEFT, padx=4)
 
@@ -274,10 +277,16 @@ class NokiaGUIEmulator(tk.Tk):
 
     def _populate_payload_list(self):
         choices = []
+        other_payloads = []
         if os.path.isdir(PAYLOAD_DIR):
             for f in sorted(os.listdir(PAYLOAD_DIR)):
                 if f.endswith(".bin"):
-                    choices.append(f"Payload: {f}")
+                    entry = f"Payload: {f}"
+                    if f == "baremetal_lcd.bin":
+                        choices.append(entry) # Prioritize LCD Demo at top of list
+                    else:
+                        other_payloads.append(entry)
+        choices.extend(other_payloads)
         if os.path.isfile(os.path.join(DUMP_DIR, "boot0.bin")):
             choices.append("Bootloader: boot0.bin (IRAM)")
         if os.path.isfile(os.path.join(DUMP_DIR, "boot1.bin")):
@@ -295,6 +304,7 @@ class NokiaGUIEmulator(tk.Tk):
         if "boot0.bin" in val:
             self.current_binary = os.path.join(DUMP_DIR, "boot0.bin")
             self.current_profile = "boot0"
+            self.console_text.insert(tk.END, "[Note] boot0.bin is the stage 1 bootloader (IRAM setup & DDR calibration only; no LCD).\n")
         elif "boot1.bin" in val:
             self.current_binary = os.path.join(DUMP_DIR, "boot1.bin")
             self.current_profile = "boot1"
@@ -302,6 +312,25 @@ class NokiaGUIEmulator(tk.Tk):
             filename = val.replace("Payload: ", "")
             self.current_binary = os.path.join(PAYLOAD_DIR, filename)
             self.current_profile = "payload"
+            if filename == "baremetal_lcd.bin":
+                self.console_text.insert(tk.END, "[Ready] baremetal_lcd.bin: Click '▶ Run Payload' or '📺 Live LCD Demo' for 240x320 screen animation!\n")
+            elif filename == "baremetal_asm.bin":
+                self.console_text.insert(tk.END, "[Note] baremetal_asm.bin tests CPU loop & mailbox markers only (no LCD code).\n")
+        self.console_text.see(tk.END)
+
+    def _launch_lcd_demo(self):
+        lcd_payload = os.path.join(PAYLOAD_DIR, "baremetal_lcd.bin")
+        if not os.path.isfile(lcd_payload):
+            messagebox.showerror("Error", f"baremetal_lcd.bin not found in {PAYLOAD_DIR}")
+            return
+        self.payload_var.set("Payload: baremetal_lcd.bin")
+        self.current_binary = lcd_payload
+        self.current_profile = "payload"
+        if self.running:
+            self._stop_emulation()
+            self.after(200, self._start_emulation)
+        else:
+            self._start_emulation()
 
     def _browse_binary(self):
         path = filedialog.askopenfilename(

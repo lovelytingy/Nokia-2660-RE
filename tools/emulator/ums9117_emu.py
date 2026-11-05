@@ -138,8 +138,9 @@ class UMS9117Emulator:
         # Allows payloads returning to FDL1 to acknowledge cleanly
         self.uc.mem_write(0x00006C22, b'\x70\x47')
 
-        # 5. Return target halt instruction at 0x80100FF0 ("b ." = 0xeafffffe)
-        self.halt_address = 0x80100FF0
+        # 5. Return target halt instruction at 0x80705FF0 ("b ." = 0xeafffffe)
+        # Placed safely in high scratch region outside payload code space
+        self.halt_address = 0x80705FF0
         self.uc.mem_write(self.halt_address, b'\xfe\xff\xff\xea')
 
         # 6. Map common MMIO peripheral blocks
