@@ -78,10 +78,11 @@ class UMS9117Emulator:
         self.fb_width = 240
         self.fb_height = 320
         self.framebuffer = bytearray(self.fb_width * self.fb_height * 2)
+        self.on_frame_callback = None
 
         # Simulated Peripheral Registers
         self.mmio_storage = {}
-        self.mapped_pages = set()
+        self.mapped_intervals = []
 
         # Initialize Base Memory Layout
         self._init_memory()
@@ -90,11 +91,38 @@ class UMS9117Emulator:
     def _map_region(self, base, size):
         start = align_down(base)
         end = align_up(base + size)
-        total = end - start
-        for page in range(start, end, PAGE_SIZE):
-            if page not in self.mapped_pages:
-                self.uc.mem_map(page, PAGE_SIZE)
-                self.mapped_pages.add(page)
+        if end <= start:
+            return
+        curr = start
+        while curr < end:
+            found = False
+            for s, e in self.mapped_intervals:
+                if s <= curr < e:
+                    curr = e
+                    found = True
+                    break
+                elif curr < s:
+                    map_end = min(s, end)
+                    self.uc.mem_map(curr, map_end - curr)
+                    self.mapped_intervals.append([curr, map_end])
+                    self.mapped_intervals.sort()
+                    curr = map_end
+                    found = True
+                    break
+            if not found:
+                self.uc.mem_map(curr, end - curr)
+                self.mapped_intervals.append([curr, end])
+                self.mapped_intervals.sort()
+                curr = end
+
+        # Merge adjacent intervals
+        merged = []
+        for interval in self.mapped_intervals:
+            if not merged or merged[-1][1] < interval[0]:
+                merged.append(interval)
+            else:
+                merged[-1][1] = max(merged[-1][1], interval[1])
+        self.mapped_intervals = merged
 
     def _init_memory(self):
         # 1. IRAM / SRAM (128 KB at 0x00000000)
@@ -115,22 +143,30 @@ class UMS9117Emulator:
         self.uc.mem_write(self.halt_address, b'\xfe\xff\xff\xea')
 
         # 6. Map common MMIO peripheral blocks
+        # LCD Controller: 0x20800000
+        self._map_region(0x20800000, 0x2000)
+        # AHB Clock & Power: 0x20E00000
+        self._map_region(0x20E00000, 0x4000)
+        # Hardware 1ms Timer: 0x40230000
+        self._map_region(0x40230000, 0x1000)
+        # Keypad Matrix: 0x40250000
+        self._map_region(0x40250000, 0x1000)
+        # AON / Pinmux: 0x402A0000
+        self._map_region(0x402A0000, 0x2000)
+        # Secure Boot & System Control: 0x402E0000
+        self._map_region(0x402E0000, 0x2000)
+        # PMIC ADI Base: 0x40600000
+        self._map_region(0x40600000, 0x1000)
+        # PMIC EIC & APB: 0x40608000
+        self._map_region(0x40608000, 0x4000)
         # UART1: 0x70100000
         self._map_region(0x70100000, 0x2000)
         # APB Clock Gates: 0x71300000
         self._map_region(0x71300000, 0x1000)
-        # AON / Pinmux: 0x402A0000
-        self._map_region(0x402A0000, 0x2000)
-        # Keypad Matrix: 0x40250000
-        self._map_region(0x40250000, 0x1000)
-        # PMIC EIC & APB: 0x40608000
-        self._map_region(0x40608000, 0x4000)
         # ADI Controller: 0xA1600000
         self._map_region(0xA1600000, 0x2000)
         # Analog Die Window: 0xA1610000
         self._map_region(0xA1610000, 0x2000)
-        # Secure Boot Gates: 0x402E0000
-        self._map_region(0x402E0000, 0x2000)
 
     def _init_hooks(self):
         # Memory Read / Write hooks on peripherals
@@ -192,6 +228,42 @@ class UMS9117Emulator:
             uc.mem_write(0xA160023C, struct.pack('<I', resp))
             return
 
+        # 5. LCD Controller Control Register (0x20800000)
+        if address == 0x20800000:
+            if value & 8: # Start Refresh bit
+                y_base = self.mmio_storage.get(0x20800024, (0, 4))[0]
+                fb_addr = y_base << 2
+                if fb_addr != 0:
+                    try:
+                        frame_data = uc.mem_read(fb_addr, self.fb_width * self.fb_height * 2)
+                        self.framebuffer[:] = frame_data
+                        if self.on_frame_callback:
+                            self.on_frame_callback(frame_data)
+                    except Exception as e:
+                        if self.verbose:
+                            print(f"[EMU:LCDC] Framebuffer read error: {e}")
+                # Set LCDC IRQ raw bit 0 (refresh done) so sys_wait_refresh returns!
+                uc.mem_write(0x2080011C, struct.pack('<I', 1))
+            return
+
+        # 6. LCD Controller IRQ Clear (0x20800114)
+        if address == 0x20800114:
+            uc.mem_write(0x2080011C, struct.pack('<I', 0))
+            return
+
+        # 7. Keypad Matrix IRQ Clear (0x40250010)
+        if address == 0x40250010:
+            uc.mem_write(0x40250008, struct.pack('<I', 0))
+            return
+
+        # 8. PMIC ADI Base (0x40600000) Command Register (0x40600028)
+        if address == 0x40600028:
+            reg_addr = value
+            mock_val = self.mmio_storage.get(reg_addr, (0x0000, 2))[0] & 0xFFFF
+            # Bit 31=0 indicates ready / not busy
+            uc.mem_write(0x4060002C, struct.pack('<I', mock_val))
+            return
+
     def _hook_mem_read(self, uc, access, address, size, value, user_data):
         # 1. UART1 Status Register (0x7010000C) — bit 0=0 (TX FIFO not full / ready)
         if address == 0x7010000C:
@@ -216,6 +288,22 @@ class UMS9117Emulator:
         # 5. PMIC EIC Power Key (0x40608280) — bit 1=1 (Power key not pressed)
         if address == 0x40608280:
             uc.mem_write(address, struct.pack('<I', 0x00000002))
+            return
+
+        # 6. System Timer ms (0x4023000C) — 1ms free-running counter
+        if address == 0x4023000C:
+            ms = int(time.time() * 1000) & 0xFFFFFFFF
+            uc.mem_write(address, struct.pack('<I', ms))
+            return
+
+        # 7. UMS9117 Chip ID (0x402E00FC)
+        if address == 0x402E00FC:
+            uc.mem_write(address, struct.pack('<I', 0x91170000))
+            return
+
+        # 8. PMIC ADI Write Status (0x40600030) — bit 11 (0x800) = 0 (write FIFO ready)
+        if address == 0x40600030:
+            uc.mem_write(address, struct.pack('<I', 0x00000000))
             return
 
     def _hook_mem_unmapped(self, uc, access, address, size, value, user_data):
@@ -286,6 +374,35 @@ class UMS9117Emulator:
             return struct.unpack('<5I', data)
         except Exception:
             return None
+
+
+    def press_key(self, key_name):
+        """Simulate a keypad button press event in the emulated hardware."""
+        key_codes = {
+            '1': 0x00, '2': 0x01, '3': 0x02,
+            '4': 0x08, '5': 0x09, '6': 0x0A,
+            '7': 0x10, '8': 0x11, '9': 0x12,
+            '*': 0x18, '0': 0x19, '#': 0x1A,
+            'LSK': 0x03, 'RSK': 0x04,
+            'CALL': 0x0B, 'OK': 0x13,
+            'UP': 0x0C, 'DOWN': 0x14,
+            'LEFT': 0x0D, 'RIGHT': 0x15
+        }
+        if key_name in ('END', 'POWER'):
+            # SC2720 PMIC EIC Power/End key active low (bit 1 = 0)
+            self.uc.mem_write(0x40608280, struct.pack('<I', 0x00000000))
+            return
+
+        code = key_codes.get(key_name, 0x00)
+        self.uc.mem_write(0x40250008, struct.pack('<I', 0x00000001))
+        self.uc.mem_write(0x4025002C, struct.pack('<I', code))
+
+    def release_key(self, key_name):
+        """Simulate releasing a keypad button."""
+        if key_name in ('END', 'POWER'):
+            self.uc.mem_write(0x40608280, struct.pack('<I', 0x00000002))
+            return
+        self.uc.mem_write(0x40250008, struct.pack('<I', 0x00000000))
 
 
 def main():

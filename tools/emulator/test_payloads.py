@@ -72,6 +72,80 @@ class TestUMS9117Emulator(unittest.TestCase):
         self.assertEqual(emu.boot_key_mode, 0xE0000000)
         print("  [✓] boot keys: Pinmux simulation verified!")
 
+    def test_04_lcdc_framebuffer_refresh(self):
+        """Test LCDC display controller trigger, RAM framebuffer fetch, and refresh callback."""
+        import struct
+        emu = UMS9117Emulator(trace=False, verbose=False)
+        received_frames = []
+
+        def on_frame(raw_bytes):
+            received_frames.append(raw_bytes)
+
+        emu.on_frame_callback = on_frame
+
+        # Prepare 240x320 RGB565 red pixels (0xF800 little-endian = \x00\xF8) in DRAM
+        fb_addr = 0x80200000
+        fb_size = 240 * 320 * 2
+        red_pattern = b'\x00\xF8' * (240 * 320)
+        emu._map_region(fb_addr, fb_size)
+        emu.uc.mem_write(fb_addr, red_pattern)
+
+        # Execute ARM instructions programming LCDC registers:
+        # ldr r0, =fb_addr >> 2; ldr r1, =0x20800024; str r0, [r1]
+        # mov r0, #8;            ldr r1, =0x20800000; str r0, [r1]; bx lr
+        code = bytearray()
+        code += struct.pack('<I', 0xe59f0018) # ldr r0, [pc, #24] -> fb_addr >> 2
+        code += struct.pack('<I', 0xe59f1018) # ldr r1, [pc, #24] -> 0x20800024
+        code += struct.pack('<I', 0xe5810000) # str r0, [r1]
+        code += struct.pack('<I', 0xe3a00008) # mov r0, #8
+        code += struct.pack('<I', 0xe59f1010) # ldr r1, [pc, #16] -> 0x20800000
+        code += struct.pack('<I', 0xe5810000) # str r0, [r1]
+        code += struct.pack('<I', 0xe12fff1e) # bx lr
+        code += struct.pack('<I', 0xe1a00000) # nop
+        # Literals:
+        code += struct.pack('<I', fb_addr >> 2) # 0x80100220
+        code += struct.pack('<I', 0x20800024)   # 0x80100224
+        code += struct.pack('<I', 0x20800000)   # 0x80100228
+
+        emu.uc.mem_write(0x80100200, bytes(code))
+        success = emu.run(0x80100200, max_insn=20, timeout_ms=1000)
+        self.assertTrue(success, "LCDC refresh routine execution failed")
+
+        self.assertEqual(len(received_frames), 1, "Expected 1 framebuffer refresh callback")
+        self.assertEqual(len(received_frames[0]), fb_size, "Framebuffer byte size mismatch")
+        self.assertEqual(received_frames[0][:4], b'\x00\xF8\x00\xF8', "Framebuffer pixel data mismatch")
+
+        # Verify LCDC IRQ raw bit 0 is asserted
+        irq_raw = int.from_bytes(emu.uc.mem_read(0x2080011C, 4), 'little')
+        self.assertEqual(irq_raw & 1, 1, "LCDC IRQ raw bit 0 should be asserted after refresh")
+        print("  [✓] lcdc: Virtual framebuffer refresh and callback verified!")
+
+    def test_05_keypad_injection(self):
+        """Test keypad button matrix injection and PMIC EIC power key simulation."""
+        emu = UMS9117Emulator(trace=False, verbose=False)
+
+        # 1. Test Key 5 injection
+        emu.press_key('5')
+        int_raw = int.from_bytes(emu.uc.mem_read(0x40250008, 4), 'little')
+        key_stat = int.from_bytes(emu.uc.mem_read(0x4025002C, 4), 'little')
+        self.assertEqual(int_raw, 1, "Keypad int_raw should be 1 on key press")
+        self.assertEqual(key_stat, 0x09, "Keypad key_status mismatch for Key 5")
+
+        # Release Key 5
+        emu.release_key('5')
+        int_raw = int.from_bytes(emu.uc.mem_read(0x40250008, 4), 'little')
+        self.assertEqual(int_raw, 0, "Keypad int_raw should clear on key release")
+
+        # 2. Test PMIC Power/End key (active low)
+        emu.press_key('END')
+        eic_val = int.from_bytes(emu.uc.mem_read(0x40608280, 4), 'little')
+        self.assertEqual(eic_val & 2, 0, "PMIC Power key bit 1 should be 0 (pressed)")
+
+        emu.release_key('END')
+        eic_val = int.from_bytes(emu.uc.mem_read(0x40608280, 4), 'little')
+        self.assertEqual(eic_val & 2, 2, "PMIC Power key bit 1 should be 1 (released)")
+        print("  [✓] keypad: Matrix and PMIC EIC key injection verified!")
+
 
 if __name__ == "__main__":
     print("=================================================================")

@@ -101,10 +101,52 @@ Simulate holding Key `7` at power-on to enable UART debug mode:
 
 ---
 
-### 4. Run the Automated Test Suite
+### 4. Interactive Nokia 2660 GUI Emulator & Phone Skin
+
+Launch the desktop hardware simulator featuring an interactive **Nokia 2660 Flip clamshell shell**, active **240×320 QVGA virtual LCD display**, clickable **keypad matrix**, live **CPU register telemetry**, and real-time **UART1 serial console**:
+
+```bash
+python3 tools/emulator/nokia_gui_emu.py
+```
+
+#### GUI Emulator Features:
+* **Interactive Nokia Clamshell Skin**: Authentically modeled Nokia 2660 silhouette with earpiece grill, chrome branding, and tactile buttons.
+* **240×320 Virtual Display**:
+  * Displays the stock Nokia *Connecting Hands* boot splash extracted from `mmi_res.bin`.
+  * Dynamically updates with live RGB565 frames pushed by homebrew payloads over the emulated LCD controller (`0x20800000`).
+* **Hardware Matrix Keypad**:
+  * Clickable on-screen keypad (`1`–`9`, `*`, `0`, `#`, Softkeys, D-Pad, Call, End/Power).
+  * Direct PC keyboard binding (NumPad or standard numbers, Arrows for D-Pad, `Enter` for OK, `Esc` for End).
+  * Automatically drives APB Keypad Matrix registers (`0x40250000`) and PMIC EIC registers (`0x40608280`).
+* **Active Hardware Indicators**:
+  * **Torch LED**: Glows yellow when the PMIC flashlight LDO (`0x40608df4`) is powered.
+  * **Haptic Vibration**: Glows green when the PMIC vibration motor (`0x40608e00`) pulses.
+* **Live Register Telemetry**: Displays `R0`–`R12`, `SP`, `LR`, `PC`, and `CPSR` in real time during payload execution.
+* **Real-Time UART1 Console**: Embedded serial drawer showing diagnostic strings printed by payloads at `0x70100000` (115200 8N1).
+
+---
+
+### 5. Run the Automated Test Suite
 
 ```bash
 ./tools/emulator/test_payloads.py
 ```
 
-Runs comprehensive unit tests verifying payload execution, mailbox status flags, CP15 register initialization, and boot key pinmux detection.
+Runs comprehensive unit tests verifying payload execution, mailbox status flags, CP15 register initialization, boot key pinmux detection, virtual LCDC display refreshes, and keypad matrix injection:
+
+```text
+=================================================================
+  UMS9117 Emulator — Automated Payload & Loader Test Suite
+=================================================================
+
+test_01_baremetal_asm_payload (__main__.TestUMS9117Emulator) ... [✓] baremetal_asm: All 5 mailbox markers verified! ok
+test_02_boot0_loader_entry (__main__.TestUMS9117Emulator) ... [✓] boot0: CP15 reset init and ARM-to-Thumb switch verified! ok
+test_03_boot_key_pinmux_simulation (__main__.TestUMS9117Emulator) ... [✓] boot keys: Pinmux simulation verified! ok
+test_04_lcdc_framebuffer_refresh (__main__.TestUMS9117Emulator) ... [✓] lcdc: Virtual framebuffer refresh and callback verified! ok
+test_05_keypad_injection (__main__.TestUMS9117Emulator) ... [✓] keypad: Matrix and PMIC EIC key injection verified! ok
+
+----------------------------------------------------------------------
+Ran 5 tests in 0.436s
+
+OK
+```
