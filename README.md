@@ -114,6 +114,7 @@ Our research findings are structured into focused, technical references:
 
 ### 🚀 Boot & Firmware Internals
 * [**Boot Process & Chain**](docs/boot-process.md) — FDL1/FDL2 download flow, `DHTB` header verification, `boot0`/`boot1` NAND stages.
+* [**Boot Security & Verification**](docs/boot-security-verification.md) — RSA-2048, SHA-256, eFuse gates (`0x402e0568`), and anti-rollback analysis.
 * [**BootROM Behavior**](docs/bootrom.md) — Download-mode triggers, BSL framing, watchdog timeouts, security checks.
 * [**Flash Layout & Partitions**](docs/flash-layout.md) — NAND base addresses (`0x8000000x` / `0x9000000x`), partition boundaries, PAC mapping.
 * [**Memory Map**](docs/memory-map.md) — SRAM (`0x00006200`), DDR execution layout (`0x80100000`), MMU tables, MOCOR tasks.

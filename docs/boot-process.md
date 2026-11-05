@@ -87,6 +87,7 @@ Evidence from strings / structure:
 - Initializes **LPDDR** (`DDR init start` … `DDR init OK`, `lpddr_powerup_init`, DMC training strings)
 - **Verifies FDL2** before handoff: `start verify fdl2` / `verify fdl2 suc|fail`
 - Secure-boot style failures: `cert type invalid`, `compare hash fail`, `key cert hash verify fail`, `content cert hash verify fail`, `antiroll_back error`, `cert empty`
+- Detailed cryptographic decompilation analysis: see [**Boot Security & Verification**](boot-security-verification.md).
 - Mentions `boot0 UART/JTAG mode = %d` (debug strap/mode shared with boot0 lineage)
 
 Implication: unsigned or wrong-key **FDL2** should fail verification inside FDL1 unless BootROM/FDL1 secure boot is disabled or keys are known.
