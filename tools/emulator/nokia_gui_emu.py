@@ -112,7 +112,6 @@ class NokiaGUIEmulator(tk.Tk):
             row1, textvariable=self.payload_var, state="readonly", width=28
         )
         self.payload_combo.pack(side=tk.LEFT, padx=6)
-        self._populate_payload_list()
 
         btn_browse = tk.Button(row1, text="Browse...", command=self._browse_binary, bg="#30363d", fg="#c9d1d9", relief=tk.FLAT)
         btn_browse.pack(side=tk.LEFT, padx=4)
@@ -169,6 +168,9 @@ class NokiaGUIEmulator(tk.Tk):
 
         # Keyboard Bindings
         self.bind("<Key>", self._on_key_press)
+
+        # Populate payload list after all console and control widgets are built
+        self._populate_payload_list()
 
     def _draw_phone_shell(self):
         c = self.phone_canvas
@@ -301,10 +303,11 @@ class NokiaGUIEmulator(tk.Tk):
 
     def _on_payload_selected(self, event):
         val = self.payload_var.get()
+        msg = None
         if "boot0.bin" in val:
             self.current_binary = os.path.join(DUMP_DIR, "boot0.bin")
             self.current_profile = "boot0"
-            self.console_text.insert(tk.END, "[Note] boot0.bin is the stage 1 bootloader (IRAM setup & DDR calibration only; no LCD).\n")
+            msg = "[Note] boot0.bin is the stage 1 bootloader (IRAM setup & DDR calibration only; no LCD).\n"
         elif "boot1.bin" in val:
             self.current_binary = os.path.join(DUMP_DIR, "boot1.bin")
             self.current_profile = "boot1"
@@ -313,10 +316,13 @@ class NokiaGUIEmulator(tk.Tk):
             self.current_binary = os.path.join(PAYLOAD_DIR, filename)
             self.current_profile = "payload"
             if filename == "baremetal_lcd.bin":
-                self.console_text.insert(tk.END, "[Ready] baremetal_lcd.bin: Click '▶ Run Payload' or '📺 Live LCD Demo' for 240x320 screen animation!\n")
+                msg = "[Ready] baremetal_lcd.bin: Click '▶ Run Payload' or '📺 Live LCD Demo' for 240x320 screen animation!\n"
             elif filename == "baremetal_asm.bin":
-                self.console_text.insert(tk.END, "[Note] baremetal_asm.bin tests CPU loop & mailbox markers only (no LCD code).\n")
-        self.console_text.see(tk.END)
+                msg = "[Note] baremetal_asm.bin tests CPU loop & mailbox markers only (no LCD code).\n"
+        
+        if msg and hasattr(self, 'console_text') and self.console_text is not None:
+            self.console_text.insert(tk.END, msg)
+            self.console_text.see(tk.END)
 
     def _launch_lcd_demo(self):
         lcd_payload = os.path.join(PAYLOAD_DIR, "baremetal_lcd.bin")
