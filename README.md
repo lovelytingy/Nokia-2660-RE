@@ -1,10 +1,12 @@
 # Nokia 2660 Flip (TA-1480) — Reverse Engineering & Custom Code
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE)
 [![Platform: Unisoc UMS9117](https://img.shields.io/badge/SoC-Unisoc%20T107%20%2F%20UMS9117-orange.svg)](docs/hardware.md)
 [![Arch: ARM Cortex-A7](https://img.shields.io/badge/Arch-ARMv7--A%20Cortex--A7-red.svg)](docs/boot-process.md)
 [![Execution: Volatile DRAM](https://img.shields.io/badge/Payloads-Safe%20Volatile%20DRAM-brightgreen.svg)](docs/custom-code-execution.md)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-green.svg)](CONTRIBUTING.md)
+
+<a href="https://buymeacoffee.com/lovelytingy"><img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me A Coffee" height="32"></a>
 
 Hardware documentation, BootROM protocol analysis, MOCOR firmware reverse engineering, and safe bare-metal custom code execution on the **Nokia 2660 Flip (TA-1480)** 4G feature phone.
 
@@ -44,7 +46,7 @@ Our goal is to thoroughly document the platform internals, map out peripheral re
 - ✅ **Hardware Secure Boot & eFuse Audit:** Physical audit proved Gate 1 & Gate 2 are active (16-bit eFuse lock mask `0xFFFF` burned in Row 0); on-device boot strictly enforces RSA-2048 verification ([docs/boot-security-verification.md](docs/boot-security-verification.md)).
 - ✅ **Firmware Triage & Static Analysis Suite:** Built automated analysis tools ([`tools/extract_strings.py`](tools/extract_strings.py) & [`tools/mocor-info.py`](tools/mocor-info.py)) to parse DHTB headers, RSA certificate chains, RTOS task tables, 560+ AT commands, and secret dialer codes ([docs/hidden-codes.md](docs/hidden-codes.md)).
 - ✅ **Coprocessor & Auxiliary Firmware Decompilation:** Decompiled Cortex-M4 power management coprocessor (`pm_cm4.bin`) with 245 exported C functions in Ghidra, reverse-engineered `mmi_res.bin` RGB565 boot splashes, CEVA baseband DSP memory maps, and 28 acoustic calibration profiles in `nvitem.bin`.
-- 🚧 **Hardware Emulator (In Development):** Host-side ARMv7-A hardware simulator ([`tools/emulator/`](tools/emulator/)) using Unicorn Engine, clamshell GUI skin, and keypad matrix. *Currently in active development as the LCD is not rendering at all.*
+- 🚧 **Hardware Emulator (In Development):** Host-side ARMv7-A hardware simulator ([`tools/emulator/`](tools/emulator/)) using Unicorn Engine, clamshell GUI skin, and keypad matrix. *(For the standalone high-performance Rust emulator with 3D clamshell animation, 16+ MIPS engine, and live vendor boot support, see sister project [**Nokia-2660-Emulator (N2660Emu)**](https://github.com/lovelytingy/Nokia-2660-Emulator)).*
 - 🔄 **Untethered Execution:** Exploring signature bypass, bootloader chain modification, or micro-payload injection from NAND flash.
 
 ---
@@ -138,6 +140,7 @@ Our research findings are structured into focused, technical references:
 * [**Custom Code Execution Guide**](docs/custom-code-execution.md) — Bare-metal linker scripts, toolchain setup, payload entry points.
 * [**Community Findings & Tips**](docs/community-findings.md) — Boot key shortcuts, dialer codes, safe firmware dump walkthrough.
 * [**Hidden Dialer Codes**](docs/hidden-codes.md) — Complete audit of secret codes: Unisoc Engineer Mode (`*#*#372733#*#`), factory logging toggle (`*#8378*733425*1#`), MMI hardware test, and 30+ language shortcuts.
+* [**Legal Disclaimer & IP Notice**](docs/legal-notice.md) — Non-affiliation, trademark fair use, interoperability exceptions, and firmware redistribution policy.
 
 ---
 
@@ -147,8 +150,8 @@ Our research findings are structured into focused, technical references:
 Nokia-2660-RE/
 ├── README.md               # Main project overview & quickstart
 ├── CONTRIBUTING.md         # Guidelines for contributing research/code
-├── DISCLAIMER.md           # Safety & legal disclaimers
-├── LICENSE                 # MIT License
+├── DISCLAIMER.md           # Legal disclaimer, IP notice & safety policy
+├── LICENSE                 # GNU General Public License v3.0 (GPL-3.0)
 ├── requirements.txt        # Optional Python dependencies (Capstone)
 │
 ├── docs/                   # Technical documentation & register maps
@@ -157,6 +160,7 @@ Nokia-2660-RE/
 │   ├── flash-layout.md     # Partition table & flash geometry
 │   ├── keypad-matrix.md    # Keypad matrix controller registers
 │   ├── custom-code-execution.md # Bare-metal homebrew execution guide
+│   ├── legal-notice.md     # Legal disclaimer & intellectual property policy
 │   └── images/             # Photos & hardware captures
 │
 ├── firmware/               # Firmware provenance, hashes & manifests
@@ -244,17 +248,29 @@ This research builds upon invaluable foundational work by the open-source Unisoc
 
 ---
 
-## ⚠️ Disclaimer
+## ⚖️ Legal Disclaimer & Intellectual Property Notice
 
-**No warranty. No guarantee. We are not responsible for bricked or damaged devices.**
+**N2660Emu** and **Nokia-2660-RE** are independent, non-commercial, open-source research and educational projects developed by individual contributors.
 
-This repository is published solely for educational and research purposes. Flashing or modifying phones carries inherent risk. You assume **full responsibility** for any actions taken using the information or tools provided here.
+* **Non-Affiliation**: This project is not affiliated with, endorsed by, sponsored by, or in any way associated with Nokia Corporation, HMD Global Oy, Unisoc (Shanghai) Technologies Co., Ltd., or any of their respective subsidiaries or affiliates.
+* **Trademark Notice & Nominative Fair Use**: "Nokia", "Nokia 2660", "Nokia 2660 Flip", "Unisoc", "Spreadtrum", "T107", "UMS9117", and related identifiers are trademarks of their respective owners. Use of these terms is strictly for nominative, descriptive, and identification purposes under Section 30(2)(d) of the Indian Trade Marks Act, 1999 and the doctrine of Nominative Fair Use under applicable international trademark laws. No corporate logos or trade dress are used.
+* **Reverse Engineering & Interoperability**: Reverse engineering is conducted in strict accordance with statutory interoperability exceptions, including Section 52(1)(ab) and Section 52(1)(ac) of the Indian Copyright Act, 1957. Peripheral models, machine abstractions, and test payloads are original, independent clean-room implementations.
+* **Firmware Redistribution Policy**: No proprietary firmware binaries, BootROM images, bootloaders (`fdl1`, `fdl2`, `boot0`, `boot1`), kernel, or OS code are distributed or hosted. Users must extract their own firmware dumps from hardware they lawfully possess.
+* **Hardware Safety & Assumption of Risk**: Everything is provided **AS IS** with no warranty. Contributors bear no liability for bricked, damaged, or unstable devices.
 
-See [DISCLAIMER.md](DISCLAIMER.md) for full terms. Never redistribute proprietary firmware binaries or publish private NV calibration data (IMEI, MAC addresses).
+For full legal terms and statutory notices, see [DISCLAIMER.md](DISCLAIMER.md) and [docs/legal-notice.md](docs/legal-notice.md).
+
+---
+
+## ❤️ Support My Work
+
+I am an independent developer researching and documenting this platform. If you find this project valuable, voluntary contributions help support hardware research, testing equipment, and ongoing development:
+
+<a href="https://buymeacoffee.com/lovelytingy"><img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me A Coffee" height="50"></a>
 
 ---
 
 ## 📄 License
 
-Code and documentation created in this repository are released under the [MIT License](LICENSE).  
+Code and documentation created in this repository are released under the [GNU General Public License v3.0 (GPL-3.0)](LICENSE).  
 Upstream firmware binaries remain the intellectual property of their respective owners.

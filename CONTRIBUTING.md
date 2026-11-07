@@ -16,6 +16,7 @@ Document hardware and firmware, map boot/download modes, understand the MOCOR OS
 - Prefer small, focused PRs (one topic: docs, tool, analysis note).
 - Say what you observed vs what you inferred.
 - If you dump NV or calibration data, **redact IMEI / secrets** before sharing.
+- All code and documentation contributed to this repository are licensed under the [GNU General Public License v3.0 (GPL-3.0)](LICENSE).
 
 ## Quick start
 
