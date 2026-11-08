@@ -43,6 +43,7 @@ N2660Emu is an independent, non-commercial, open-source research and educational
 
 ## 5. Hardware Safety, Warranty & Operational Risk
 
+* **Active Development:** This project is currently in active development. Tools, reverse-engineered register maps, payloads, and documentation are continuously evolving; some things might be incomplete, experimental, or not work as intended.
 * **No Warranty / No Guarantee:** Everything in this repository is provided **AS IS**, with **no warranty** and **no guarantee** of accuracy, completeness, safety, or fitness for any purpose. Tools, addresses, PAC files, and procedures may be wrong, incomplete, or unsafe for your exact hardware revision or software build. Firmware samples documented here may not match a TA-1480 or your unit.
 * **You Are Responsible for Your Device:** The authors and contributors are **not responsible** for bricked, damaged, or unstable devices, voided warranties, data loss, lost cellular service, or any other harm. Flashing, download mode, UART, test points, and custom images can permanently destroy a phone. If you proceed, you do so entirely at your own risk.
 * **Confidentiality & Personal Data:** Do not publish IMEI, MAC addresses, personal data, or secret calibration dumps (`nvitem.bin`).

@@ -4,9 +4,13 @@
 [![Platform: Unisoc UMS9117](https://img.shields.io/badge/SoC-Unisoc%20T107%20%2F%20UMS9117-orange.svg)](docs/hardware.md)
 [![Arch: ARM Cortex-A7](https://img.shields.io/badge/Arch-ARMv7--A%20Cortex--A7-red.svg)](docs/boot-process.md)
 [![Execution: Volatile DRAM](https://img.shields.io/badge/Payloads-Safe%20Volatile%20DRAM-brightgreen.svg)](docs/custom-code-execution.md)
+[![Status: In Development](https://img.shields.io/badge/Status-In%20Development-yellow.svg)](README.md)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-green.svg)](CONTRIBUTING.md)
 
 <a href="https://buymeacoffee.com/lovelytingy"><img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me A Coffee" height="32"></a>
+
+> [!WARNING]
+> **Active Development Notice:** This repository is currently in active development. Tools, payloads, scripts, and documentation are continuously evolving. Some features, commands, or hardware routines may be experimental, incomplete, or might not work as intended. Please proceed with caution, test safely in volatile DRAM, and feel free to open an issue or pull request if you encounter any bugs.
 
 Hardware documentation, BootROM protocol analysis, MOCOR firmware reverse engineering, and safe bare-metal custom code execution on the **Nokia 2660 Flip (TA-1480)** 4G feature phone.
 
